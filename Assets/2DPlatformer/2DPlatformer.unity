@@ -358,13 +358,14 @@ GameObject:
   - component: {fileID: 1024886145}
   - component: {fileID: 1024886144}
   - component: {fileID: 1024886142}
+  - component: {fileID: 1024886146}
   m_Layer: 0
   m_Name: Player2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!50 &1024886142
 Rigidbody2D:
   serializedVersion: 4
@@ -460,6 +461,18 @@ Transform:
   - {fileID: 1517220404}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1024886146
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1024886140}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e81fa1014e862149b22e835f96203d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1092387606
 GameObject:
   m_ObjectHideFlags: 0
@@ -479,7 +492,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1092387607
 Transform:
   m_ObjectHideFlags: 0
@@ -489,7 +502,7 @@ Transform:
   m_GameObject: {fileID: 1092387606}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.849, y: -3.186, z: 0}
+  m_LocalPosition: {x: -1.133, y: -3.164, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -555,9 +568,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   moveSpeed: 5
   jumpForce: 5
-  useCoyoteTime: 1
+  useCoyoteTime: 0
   coyoteTime: 0.08
-  useJumpBuffer: 1
+  useJumpBuffer: 0
   jumpBufferTime: 0.1
   useVariableJumpHeight: 0
   jumpCutMultiplier: 0.5
