@@ -116,24 +116,20 @@ public class PlayerController2D : MonoBehaviour
             {
                 ExecuteJump();
                 jumpBufferCounter = 0f;
-                Debug.Log("Coyote Jump with Jump Buffer!");
             }
         }
         else if (useCoyoteTime && coyoteTimeCounter > 0f && jumpInputDown)
         {
             ExecuteJump();
-            Debug.Log("Coyote Jump!");
         }
         else if (useJumpBuffer && isGrounded && jumpBufferCounter > 0f)
         {
             ExecuteJump();
             jumpBufferCounter = 0f;
-            Debug.Log("Jump Buffer Jump!");
         }
         else if (isGrounded && jumpInputDown)
         {
             ExecuteJump();
-            Debug.Log("Normal Jump!");
         }
 
         if (useVariableJumpHeight && jumpInputUp && verticalVelocity > 0f)
