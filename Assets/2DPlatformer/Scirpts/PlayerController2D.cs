@@ -2,6 +2,11 @@ using UnityEngine;
 
 public class PlayerController2D : MonoBehaviour
 {
+
+    [Header("References")]
+    [SerializeField] private Rigidbody2D rigidBody;
+    [SerializeField] private SpriteRenderer spriteRenderer;
+
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 5f;
     [SerializeField] private float jumpForce = 5f;
@@ -33,14 +38,11 @@ public class PlayerController2D : MonoBehaviour
     [ReadOnly] [SerializeField] private bool jumpInputUp;
 
 
-    [Header("References")]
-    private Rigidbody2D rigidBody;
-    private SpriteRenderer spriteRenderer;
 
     private void Start()
     {
-        rigidBody = GetComponent<Rigidbody2D>();
-        spriteRenderer = GetComponent<SpriteRenderer>();
+        if (!rigidBody) {rigidBody = GetComponent<Rigidbody2D>();}
+        if (!spriteRenderer) {spriteRenderer = GetComponent<SpriteRenderer>();}
     }
 
     private void Update()
