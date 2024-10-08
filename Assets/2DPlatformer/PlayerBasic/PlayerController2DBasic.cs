@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class PlayerController2D : MonoBehaviour
+public class PlayerController2DBasic : MonoBehaviour
 {
 
     [Header("References")]
