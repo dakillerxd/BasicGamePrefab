@@ -39,7 +39,7 @@ public class PlayerMovementStats : ScriptableObject
 
     [Header("Jump Apex")]
     [Range(0.5f, 1f)] public float ApexThreshold = 0.97f;
-    [Range(0.01f, 1f)] public float ApexHandleTime = 0.075f;
+    [Range(0.01f, 1f)] public float ApexHangTime = 0.075f;
 
 
     [Header("Jump Buffer")]
@@ -52,8 +52,6 @@ public class PlayerMovementStats : ScriptableObject
     [Header("Debug")]
     public bool DebugShowIsGroundedBox;
     public bool DebugShowHeadBumpBox;
-
-    [Header("JumpVisualization Tool")]
     public bool ShowWalkJumpArc = false;
     public bool ShowRunJumpArc = false;
     public bool StopOnCollision = true;

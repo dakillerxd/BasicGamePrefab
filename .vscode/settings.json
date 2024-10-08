@@ -56,5 +56,8 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "BasicGamePrefab.sln"
+    "dotnet.defaultSolution": "BasicGamePrefab.sln",
+    "cSpell.words": [
+        "Rigidbody"
+    ]
 }

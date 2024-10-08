@@ -19,8 +19,17 @@ public class PlayerMovement : MonoBehaviour
     // Collision check var
     private RaycastHit2D groundHit;
     private RaycastHit2D headHit;
-    private bool isGrounded;
+    [SerializeField] private bool isGrounded;
     private bool bumpedHead;
+
+    // Jump vars
+    public float VerticalVelocity {get; private set;}
+    private bool isJumping;
+    private bool isFastFalling;
+    private bool isFalling;
+    private float fastFallTime;
+    private float fastFallReleaseSpeed;
+    private int numberOfJumpsUsed;
 
     // Apex vars
     private float apexPoint;
@@ -29,7 +38,7 @@ public class PlayerMovement : MonoBehaviour
 
     // Jump buffer vars
     private float jumpBufferTimer;
-    private float jumpReleasedDuringBuffer;
+    private bool jumpReleasedDuringBuffer;
 
     // Coyote time vars
     private float coyoteTimer;
@@ -115,12 +124,177 @@ public class PlayerMovement : MonoBehaviour
 
     private void JumpChecks() {
 
+        // When we press the jump button
+        if (InputManagerUltimate.JumpWasPressed) {
+
+            jumpBufferTimer = MoveStats.JumpBufferTime;
+            jumpReleasedDuringBuffer = false;
+        }
 
 
+        // When we release the jump button
+        if (InputManagerUltimate.JumpWasReleased) {
+
+            if (jumpBufferTimer > 0f) {
+                jumpReleasedDuringBuffer = true;
+            }
+
+            if (isJumping && VerticalVelocity > 0f) {
+
+                if (isPastApexThreshold) {
+                    
+                    isPastApexThreshold = false;
+                    isFastFalling = true;
+                    fastFallTime = MoveStats.TimeForUpwardsCancel;
+                    VerticalVelocity = 0f;
+                }
+                else {
+                    isFastFalling = true;
+                    fastFallReleaseSpeed = VerticalVelocity;
+                }
+            }
+            
+        }
+
+
+        // Initiate jump with jump buffering and coyote time
+        if (jumpBufferTimer > 0f && !isJumping &&(isGrounded || coyoteTimer > 0f)) {
+
+            InitiateJump(1);
+
+            if (jumpReleasedDuringBuffer) {
+
+                isFastFalling = true;
+                fastFallReleaseSpeed = VerticalVelocity;
+            }
+        }
+        // Double jump
+        else if (jumpBufferTimer > 0f && isJumping && numberOfJumpsUsed < MoveStats.NumberOfJumpsAllowed) {
+
+            isFastFalling = false;
+            InitiateJump(1);
+        }
+        // Air jump after coyote time lapsed ( So you cannot double air jump after falling)
+        else if (jumpBufferTimer  > 0f && isFalling && numberOfJumpsUsed < MoveStats.NumberOfJumpsAllowed - 1) {
+
+            InitiateJump(2);
+            isFastFalling = false;
+        }
+
+
+        // landed
+        if ((isJumping || isFalling) && isGrounded && VerticalVelocity <= 0f) {
+
+            isJumping = false;
+            isFalling = false;
+            isFastFalling = false;
+            fastFallTime = 0f;
+            isPastApexThreshold = false;
+            numberOfJumpsUsed = 0;
+
+            VerticalVelocity = Physics2D.gravity.y;
+        }
+
+    }
+
+    private void InitiateJump(int numberOfJumpsTooUse) {
+
+        if (!isJumping) { 
+            
+            isJumping = true;
+        }
+
+        jumpBufferTimer = 0f;
+        numberOfJumpsUsed += numberOfJumpsTooUse;
+        VerticalVelocity = MoveStats.InitialJumpVelocity;
 
     }
 
     private void Jump() {
+
+        // Apply gravity while jumping
+        if (isJumping) {
+
+            // Check for head bump
+            if (bumpedHead) { isFastFalling = true;}
+
+            // Gravity on ascending
+            if (VerticalVelocity > 0f) {
+                
+                apexPoint = Mathf.InverseLerp(MoveStats.InitialJumpVelocity, 0f, VerticalVelocity);
+
+                if (apexPoint > MoveStats.ApexThreshold) { // Apex controls
+
+                    if (!isPastApexThreshold) {
+
+                        isPastApexThreshold = true;
+                        timePastApexThreshold = 0f;
+                    }
+
+                    if (isPastApexThreshold) {
+
+                        timePastApexThreshold += Time.fixedDeltaTime;
+                        if (timePastApexThreshold < MoveStats.ApexHangTime) {
+
+                            VerticalVelocity = 0f;
+                        }
+                        else {
+                            VerticalVelocity = -0.01f;
+                        }
+                    }
+                }
+                else { // Gravity on ascending but not past apex threshold
+
+                    VerticalVelocity += MoveStats.Gravity * Time.fixedDeltaTime;
+                    if (isPastApexThreshold) {
+
+                        isPastApexThreshold = false;
+                    }
+                }
+            }
+            // Gravity on Descending
+            else if (!isFastFalling) { 
+                
+                VerticalVelocity += MoveStats.Gravity * MoveStats.GravityOnReleaseMultiplier * Time.fixedDeltaTime;
+            }
+            else if (VerticalVelocity < 0f) {
+
+                if (!isFalling) {
+                    isFalling = true;
+                }
+            }
+        } 
+
+        // Jump cut
+        if (isFastFalling) {
+
+            if (fastFallTime >= MoveStats.TimeForUpwardsCancel) {
+
+                VerticalVelocity += MoveStats.Gravity * MoveStats.GravityOnReleaseMultiplier * Time.fixedDeltaTime;
+            }
+            else if (fastFallTime < MoveStats.TimeForUpwardsCancel) {
+
+                VerticalVelocity = Mathf.Lerp(fastFallReleaseSpeed, 0f, (fastFallTime / MoveStats.TimeForUpwardsCancel));
+            }
+
+            fastFallTime += Time.fixedDeltaTime;
+        }
+
+        // Normal gravity while falling
+        if (!isGrounded && !isJumping) {
+
+            if (!isFalling) {
+
+                isFalling = true;
+            }
+
+            VerticalVelocity += MoveStats.Gravity * Time.fixedDeltaTime;
+        }
+
+        // Clamp fall speed
+        VerticalVelocity = Mathf.Clamp(VerticalVelocity, -MoveStats.MaxFallSpeed, 50f);
+
+        rigidBody.velocity = new Vector2(rigidBody.velocity.x, VerticalVelocity);
 
     }
 
@@ -153,9 +327,32 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
+    private void BumpedHead() {
+
+        Vector2 boxCastOrigin = new Vector2(collBody.bounds.center.x, collBody.bounds.max.y);
+        Vector2 boxCastSize = new Vector2(collBody.bounds.size.x * MoveStats.HeadWidth, MoveStats.HeadDetectRayLength);
+
+        headHit = Physics2D.BoxCast(boxCastOrigin, boxCastSize, 0f, Vector2.up, MoveStats.HeadDetectRayLength, MoveStats.GroundLayerMask);
+
+        if (headHit.collider != null) { bumpedHead = true; }
+        else { bumpedHead = false; }
+
+        if (MoveStats.DebugShowHeadBumpBox) {
+
+            float headWidth = MoveStats.HeadWidth;
+            Color rayColor;
+            if (bumpedHead) { rayColor = Color.green; }
+            else { rayColor = Color.red; }
+
+            Debug.DrawRay(new Vector2(boxCastOrigin.x - boxCastSize.x / 2 * headWidth, boxCastOrigin.y), Vector2.up * MoveStats.HeadDetectRayLength, rayColor);
+            Debug.DrawRay(new Vector2(boxCastOrigin.x + boxCastSize.x / 2 * headWidth, boxCastOrigin.y), Vector2.up * MoveStats.HeadDetectRayLength, rayColor);
+            Debug.DrawRay(new Vector2(boxCastOrigin.x - boxCastSize.x / 2 * headWidth, boxCastOrigin.y + MoveStats.HeadDetectRayLength), Vector2.right * boxCastSize.x * headWidth, rayColor);
+        }
+    }
     private void CollisionChecks() {
 
         IsGrounded();
+        BumpedHead();
     }
 
 

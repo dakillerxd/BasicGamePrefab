@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 9206211999567392980}
   - component: {fileID: 7000895014060094305}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Body
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -87,7 +87,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4735547149254179239}
   - component: {fileID: 4630047835128841317}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Feet
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -166,7 +166,7 @@ GameObject:
   - component: {fileID: 213623371277768020}
   - component: {fileID: 4041634718516341635}
   - component: {fileID: 6396346327852207201}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Player2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -286,3 +286,4 @@ MonoBehaviour:
   spriteRenderer: {fileID: 213623371277768020}
   collBody: {fileID: 7000895014060094305}
   collFeet: {fileID: 4630047835128841317}
+  isGrounded: 0
