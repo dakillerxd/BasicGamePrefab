@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 6010112362093298342}
   m_Layer: 7
   m_Name: Player
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -127,6 +127,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 003a5d876b1d3c4439ed68ecfdce9534, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  maxHealth: 2
+  spawnPoint: {x: 0, y: 0}
+  moveSpeed: 4
+  runSpeed: 5
+  jumpForce: 4
+  maxAirJumps: 1
+  holdJumpRequestTime: 0.2
+  gravityForce: 9.8
+  fallMultiplier: 2.5
   rigidBody: {fileID: 2783392023027556574}
   spriteRenderer: {fileID: 4017478420366802647}
   collBody: {fileID: 6793365586128216939}
@@ -134,10 +143,15 @@ MonoBehaviour:
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
-  moveSpeed: 5
-  jumpForce: 5
-  gravityForce: 9.8
-  fallMultiplier: 2.5
+  airJumpEffect: {fileID: 0}
+  runEffect: {fileID: 0}
+  horizontalInput: 0
+  runInput: 0
+  jumpRequested: 0
+  isGrounded: 0
+  remainingAirJumps: 0
+  jumpBufferTimer: 0
+  currentHealth: 0
 --- !u!1 &8348743168451648775
 GameObject:
   m_ObjectHideFlags: 0
@@ -279,7 +293,7 @@ BoxCollider2D:
   m_IsTrigger: 0
   m_UsedByEffector: 0
   m_UsedByComposite: 0
-  m_Offset: {x: 0, y: -0.13535006}
+  m_Offset: {x: 0.0011018813, y: -0.13535006}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0, y: 0}
@@ -290,5 +304,5 @@ BoxCollider2D:
     adaptiveTiling: 0
   m_AutoTiling: 0
   serializedVersion: 2
-  m_Size: {x: 0.3, y: 0.029299885}
+  m_Size: {x: 0.2874635, y: 0.029299885}
   m_EdgeRadius: 0
