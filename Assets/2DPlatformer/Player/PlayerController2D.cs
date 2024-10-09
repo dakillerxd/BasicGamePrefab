@@ -16,25 +16,36 @@ public class PlayerController2D : MonoBehaviour
 
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 5f;
+    [SerializeField] private float runSpeed = 10f;
     [SerializeField] private float jumpForce = 5f;
-    [SerializeField] private int maxJumps = 2;
-    private bool isGrounded;
-    private int remainingJumps;
+    [SerializeField] private float dashForce = 5f;
+    [SerializeField] private int maxJumps = 1;
+    [SerializeField] private int maxDashes = 1;
 
     [Header("Gravity Settings")]
     [SerializeField] private float gravityForce = 9.8f;
     [SerializeField] private float fallMultiplier = 2.5f;
 
+    [Header("Debug")]
+    [SerializeField] private float horizontalInput;
+    [SerializeField] private bool runInput;
+    [SerializeField] private bool jumpRequested;
+    [SerializeField] private bool dashRequested;
+    [SerializeField] private bool isGrounded;
+    [SerializeField] private int remainingJumps;
+    [SerializeField] private int remainingDashes;
 
-    // Input vars
-    private float horizontalInput;
-    private bool jumpInput;
 
-
-    
-
-
-    
+    // Too implement:
+    // Walk
+    // Jump
+    // -Run
+    // -Dash
+    // -Double jump
+    // -Jump buffer
+    // -Coyote jump
+    // -Respawn
+    // -Wall slide
 
 
 
@@ -47,15 +58,11 @@ public class PlayerController2D : MonoBehaviour
     }
  
 
-    private void Start()
-    {
-        
-    }
 
+    private void Update() {
 
-    private void Update()
-    {
         CheckForInput();
+        ControlSprite();
     }
 
     private void FixedUpdate() {
@@ -63,6 +70,9 @@ public class PlayerController2D : MonoBehaviour
         CollisionChecks();
         HandleGravity();
         HandleMovement();
+        HandleJump();
+        HandleDash();
+        
         
     }
     
@@ -72,20 +82,55 @@ public class PlayerController2D : MonoBehaviour
         // Check for horizontal movement
         horizontalInput = Input.GetAxis("Horizontal");
 
-        // Check for jump input
-        jumpInput = Input.GetButtonDown("Jump");
+        // Check for run input
+        runInput = Input.GetButton("Run");
+
+        // Set jumpRequested if Jump button is pressed
+        if (Input.GetButtonDown("Jump"))
+        {
+            jumpRequested = true;
+        }
+
+        // Check for dash input
+        if (Input.GetButtonDown("Dash"))
+        {
+            dashRequested = true;
+        }
     }
 
     private void HandleMovement() {
 
-        rigidBody.velocity = new Vector2(horizontalInput * moveSpeed, rigidBody.velocity.y);
+        if (isGrounded && runInput) {
+            rigidBody.velocity = new Vector2(horizontalInput * runSpeed, rigidBody.velocity.y);
+        }
+        else {
+            rigidBody.velocity = new Vector2(horizontalInput * moveSpeed, rigidBody.velocity.y);
+        }
+        
+    }
+
+    private void HandleJump() {
+
+        if (jumpRequested && isGrounded) {
+            rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
+            jumpRequested = false;
+        }
+    }
+
+    private void HandleDash() {
+        
+        if (dashRequested && remainingDashes > 0) {
+            rigidBody.velocity = new Vector2(horizontalInput * dashForce, rigidBody.velocity.y);
+            dashRequested = false;
+            remainingDashes--;
+        }
     }
 
     private void HandleGravity() {
 
         // the player is not on the ground and not moving upwards
-        if ( !isGrounded && rigidBody.velocity.y < 0) { 
-            rigidBody.velocity += Vector2.up * gravityForce * (fallMultiplier - 1) * Time.deltaTime;
+        if (!isGrounded) { 
+            rigidBody.velocity += Vector2.down * gravityForce * Time.fixedDeltaTime;;
         }
     }
 
@@ -93,6 +138,16 @@ public class PlayerController2D : MonoBehaviour
 
         // Check if the player is grounded
         isGrounded = collFeet.IsTouchingLayers(groundLayer);
+    }
+
+
+    private void ControlSprite() {
+
+        if (horizontalInput > 0) {
+            spriteRenderer.flipX = false;
+        } else if (horizontalInput < 0) {
+            spriteRenderer.flipX = true;
+        }
     }
     
 }
