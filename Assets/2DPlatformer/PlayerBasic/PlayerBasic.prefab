@@ -45,7 +45,7 @@ GameObject:
   - component: {fileID: 1141696566138204712}
   - component: {fileID: 6638596558168878311}
   m_Layer: 0
-  m_Name: Player
+  m_Name: PlayerBasic
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -128,7 +128,7 @@ BoxCollider2D:
   m_GameObject: {fileID: 9193535047563731215}
   m_Enabled: 1
   m_Density: 1
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 6200000, guid: bc9c93a5a82634443a9598e53be4ecf0, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -180,7 +180,7 @@ Rigidbody2D:
   m_LinearDrag: 0
   m_AngularDrag: 0
   m_GravityScale: 0
-  m_Material: {fileID: 6200000, guid: f485e07fd31ce7c40b9dc5842ad6408e, type: 2}
+  m_Material: {fileID: 6200000, guid: bc9c93a5a82634443a9598e53be4ecf0, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -203,8 +203,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9648a9860ab2420498cf777959f894ed, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  rigidBody: {fileID: 0}
-  spriteRenderer: {fileID: 0}
+  rigidBody: {fileID: 1141696566138204712}
+  spriteRenderer: {fileID: 4259400073491568697}
   moveSpeed: 5
   jumpForce: 5
   useCoyoteTime: 1

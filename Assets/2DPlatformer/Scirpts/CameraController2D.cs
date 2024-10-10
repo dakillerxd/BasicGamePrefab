@@ -36,7 +36,7 @@ public class CameraController2D : MonoBehaviour
         HandleZoomInput();
     }
 
-    private void FixedUpdate()
+    private void LateUpdate()
     {
         FollowTarget();
         HandleZoom();
