@@ -195,29 +195,9 @@ public class PlayerController2D : MonoBehaviour
             DamageHealth(1);
         }
         else if(other.gameObject.CompareTag("Spike")) {
-    
-            
-            Vector2 playerPos = transform.position;
-            Vector2 spikePos = other.transform.position;
-            Vector2 awayDirection = (playerPos - spikePos).normalized;
-            
-            Debug.Log($"Player position: {playerPos}");
-            Debug.Log($"Spike position: {spikePos}" );
-            Debug.Log($"Away direction (before normalization): {playerPos - spikePos}");
-            Debug.Log($"Away direction (after normalization): {awayDirection}");
-            
-            Vector2 force = awayDirection;
-            force *= 3f;
-            Debug.Log($"Applied force: {force}");
-            
-            // rigidBody.AddForce(force, ForceMode2D.Impulse);
-            rigidBody.velocity = force;
-            Debug.DrawRay(transform.position, awayDirection, Color.red, 3f);
 
-
-
-            // rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
-            // DamageHealth(1);
+            rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
+            DamageHealth(2);
         }
     }
     private void OnTriggerEnter2D(Collider2D other) {
