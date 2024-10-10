@@ -11,7 +11,7 @@ public class Checkpoint2D : MonoBehaviour
 
 
     [Header("Debug")]
-    [SerializeField] private bool active = false;
+    [ReadOnly] public bool active = false;
 
 
     private void Start() {
@@ -26,13 +26,10 @@ public class Checkpoint2D : MonoBehaviour
     
     }
 
-    [Button] private void ToggleActive() => SetActive(!active);
-
-    private void OnCollisionEnter2D(Collision2D other) {
-        if (other.gameObject.CompareTag("Player")) {
-            other.gameObject.GetComponent<PlayerController2D>().SetCheckpoint(transform.position);
-            SetActive(true);
-        }
-    }
+    // private void OnCollisionEnter2D(Collision2D other) {
+    //     if (other.gameObject.CompareTag("Player")) {
+    //         SetActive(true);
+    //     }
+    // }
 
 }

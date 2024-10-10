@@ -5,6 +5,7 @@ using UnityEngine;
 
 public class PlayerController2D : MonoBehaviour
 {
+    [Tab("Bla")]
     [Header("Spawn Settings")]
     [SerializeField] private int maxHealth = 2;
     [SerializeField] private Vector2 spawnPoint;
@@ -13,8 +14,10 @@ public class PlayerController2D : MonoBehaviour
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 4f;
     [SerializeField] private float airMoveSpeed = 3f;
+    [SerializeField] private bool canRun = true;
     [SerializeField] private float runSpeed = 5f;
-    [SerializeField] private float airRunSpeed = 4f;
+    [SerializeField] private float airRunSpeed = 6f;
+    
 
     [Header("Jump Settings")]
     [SerializeField] private float jumpForce = 5f;
@@ -38,25 +41,16 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private ParticleSystem spawnEffect;
 
     [Header("Debug")]
-    [SerializeField] private float horizontalInput;
-    [SerializeField] private bool runInput;
-    [SerializeField] private bool jumpRequested;
-    [SerializeField] private bool isGrounded;
-    [SerializeField] private int remainingAirJumps;
-    [SerializeField] private float jumpBufferTimer = 0;
-    [SerializeField] private int currentHealth;
-    [SerializeField] private int deaths;
+    [ReadOnly] [SerializeField] private float horizontalInput;
+    [ReadOnly] [SerializeField] private bool runInput;
+    [ReadOnly] [SerializeField] private bool wasRunning;
+    [ReadOnly] [SerializeField] private bool jumpRequested;
+    [ReadOnly] [SerializeField] private bool isGrounded;
+    [ReadOnly] [SerializeField] private int remainingAirJumps;
+    [ReadOnly] [SerializeField] private float jumpBufferTimer = 0;
+    [ReadOnly] [SerializeField] private int currentHealth;
+    [ReadOnly] [SerializeField] private int deaths;
 
-
-
-
-    private void Awake() {
-
-        // if (!rigidBody) {rigidBody = GetComponent<Rigidbody2D>();}
-        // if (!spriteRenderer) {spriteRenderer = GetComponent<SpriteRenderer>();}
-        // if (!collBody) {collBody = GetComponent<Collider2D>();}
-        // if (!collFeet) {collFeet = GetComponent<Collider2D>();}
-    }
  
     private void Start() {
 
@@ -89,7 +83,7 @@ public class PlayerController2D : MonoBehaviour
         horizontalInput = Input.GetAxis("Horizontal");
 
         // Check for run input
-        runInput = Input.GetButton("Run");
+        if (canRun) {runInput = Input.GetButton("Run");}
 
         // Set jumpRequested if Jump button is pressed
         if (Input.GetButtonDown("Jump"))
@@ -107,27 +101,32 @@ public class PlayerController2D : MonoBehaviour
     #region Movement/Gravity functions
     private void HandleMovement() {
 
+        float movementSpeed = horizontalInput;
 
-
-        if (runInput) { // Run
-
-            if (isGrounded) { // On ground
-                rigidBody.velocity = new Vector2(horizontalInput * runSpeed, rigidBody.velocity.y);
-            } else { // In air
-                rigidBody.velocity = new Vector2(horizontalInput * airRunSpeed, rigidBody.velocity.y);
-            }
+        if (isGrounded) { // On Ground
             
-            if (runEffect) runEffect.Play();
-        }
-        else { // Walk
+            if (canRun && runInput) { // Run
+                movementSpeed *= runSpeed;
+                wasRunning = true;
 
-            if (isGrounded) { // On ground
-                rigidBody.velocity = new Vector2(horizontalInput * moveSpeed, rigidBody.velocity.y);
-            } else { // In air
-                rigidBody.velocity = new Vector2(horizontalInput * airMoveSpeed, rigidBody.velocity.y);
+            } else { // Walk
+                movementSpeed *= moveSpeed;
+                wasRunning = false;
+            }
+
+        } else { // In air
+
+            if (canRun && wasRunning) { // Run
+                movementSpeed *= airRunSpeed;
+            } else { // Walk
+                movementSpeed *= airMoveSpeed;
+                wasRunning = false;
             }
         }
-        
+
+        rigidBody.velocity = new Vector2(movementSpeed, rigidBody.velocity.y);
+        // Debug.Log($"Movement speed: {movementSpeed}");
+
     }
 
     private void HandleJump() {
@@ -167,12 +166,13 @@ public class PlayerController2D : MonoBehaviour
         if (!isGrounded) { 
 
             if (rigidBody.velocity.y > 0) { // Apply gravity while jumping
-                rigidBody.velocity += Vector2.down * gravityForce * Time.fixedDeltaTime;;
+                rigidBody.velocity += gravityForce * Time.fixedDeltaTime * Vector2.down;;
             }
             else { // Apply gravity with fall multiplier
-                rigidBody.velocity += Vector2.down * gravityForce * fallMultiplier * Time.fixedDeltaTime;
+                rigidBody.velocity += fallMultiplier * gravityForce * Time.fixedDeltaTime * Vector2.down;
             }
-            
+        } else { // Apply gravity when on ground
+            rigidBody.velocity += 0.1f * Time.fixedDeltaTime * Vector2.down;
         }
     }
 
@@ -195,25 +195,6 @@ public class PlayerController2D : MonoBehaviour
             DamageHealth(maxHealth);
         }
         else if(other.gameObject.CompareTag("Spike")) {
-    
-            
-            // Vector2 playerPos = transform.position;
-            // Vector2 spikePos = other.transform.position;
-            // Vector2 awayDirection = (playerPos - spikePos).normalized;
-            
-            // Debug.Log($"Player position: {playerPos}");
-            // Debug.Log($"Spike position: {spikePos}" );
-            // Debug.Log($"Away direction (before normalization): {playerPos - spikePos}");
-            // Debug.Log($"Away direction (after normalization): {awayDirection}");
-            
-            // Vector2 force = awayDirection;
-            // force *= 3f;
-            // Debug.Log($"Applied force: {force}");
-            
-            // rigidBody.AddForce(force, ForceMode2D.Impulse);
-            // Debug.DrawRay(transform.position, awayDirection, Color.red, 3f);
-
-
 
             // rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
             DamageHealth(maxHealth);
@@ -227,9 +208,11 @@ public class PlayerController2D : MonoBehaviour
         }
         else if (other.gameObject.CompareTag("Checkpoint")) {
 
-            SetCheckpoint(other.transform.position);
-            other.gameObject.GetComponent<Checkpoint2D>().SetActive(true);
-            
+            if (other.gameObject.GetComponent<Checkpoint2D>().active == false) {
+                other.gameObject.GetComponent<Checkpoint2D>().SetActive(true);
+                SetCheckpoint(other.transform.position);
+                
+            }
             
         }
     }
@@ -251,19 +234,19 @@ public class PlayerController2D : MonoBehaviour
         Debug.Log("Set spawn point to: " + spawnPoint);
     }
 
-    public void SetCheckpoint(Vector2 newCheckpoint) {
+    private void SetCheckpoint(Vector2 newCheckpoint) {
 
         lastCheckpoint = newCheckpoint;
         Debug.Log("Set checkpoint to: " + lastCheckpoint);
     }
     private void Respawn(Vector2 position) {
 
-        rigidBody.velocity = Vector2.zero;
         transform.position = position;
+        rigidBody.velocity = Vector2.zero;
         currentHealth = maxHealth;
         deaths += 1;
         if (spawnEffect) spawnEffect.Play();
-        Debug.Log("Respawned");
+        Debug.Log("Respawned, Deaths: " + deaths);
     }
 
     [Button] private void RespawnFromCheckpoint() {
@@ -285,11 +268,13 @@ public class PlayerController2D : MonoBehaviour
     private void DamageHealth(int amount) {
 
         currentHealth -= amount;
+        Debug.Log("Damaged, Health: " + currentHealth);
+        
         if (currentHealth <= 0) {
             if (deathEffect) deathEffect.Play();
             Respawn(lastCheckpoint);
         }
-        Debug.Log("Current health: " + currentHealth);
+        
     }
 
     private void ControlSprite() {
