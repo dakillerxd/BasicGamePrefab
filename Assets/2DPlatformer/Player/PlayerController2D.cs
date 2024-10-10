@@ -8,10 +8,13 @@ public class PlayerController2D : MonoBehaviour
     [Header("Spawn Settings")]
     [SerializeField] private int maxHealth = 2;
     [SerializeField] private Vector2 spawnPoint;
+    [SerializeField] private Vector2 lastCheckpoint;
 
     [Header("Movement Settings")]
-    [SerializeField] private float moveSpeed = 5f;
-    [SerializeField] private float runSpeed = 10f;
+    [SerializeField] private float moveSpeed = 4f;
+    [SerializeField] private float airMoveSpeed = 3f;
+    [SerializeField] private float runSpeed = 5f;
+    [SerializeField] private float airRunSpeed = 4f;
 
     [Header("Jump Settings")]
     [SerializeField] private float jumpForce = 5f;
@@ -42,6 +45,7 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private int remainingAirJumps;
     [SerializeField] private float jumpBufferTimer = 0;
     [SerializeField] private int currentHealth;
+    [SerializeField] private int deaths;
 
 
 
@@ -57,6 +61,7 @@ public class PlayerController2D : MonoBehaviour
     private void Start() {
 
         currentHealth = maxHealth;
+        deaths = 0;
         SetSpawnPoint(transform.position);
     }
 
@@ -94,20 +99,32 @@ public class PlayerController2D : MonoBehaviour
         }
     }
 
+
+
+
+
+    //------------------------------------
+    #region Movement/Gravity functions
     private void HandleMovement() {
 
 
 
         if (runInput) { // Run
-            rigidBody.velocity = new Vector2(horizontalInput * runSpeed, rigidBody.velocity.y);
+
+            if (isGrounded) { // On ground
+                rigidBody.velocity = new Vector2(horizontalInput * runSpeed, rigidBody.velocity.y);
+            } else { // In air
+                rigidBody.velocity = new Vector2(horizontalInput * airRunSpeed, rigidBody.velocity.y);
+            }
+            
             if (runEffect) runEffect.Play();
         }
         else { // Walk
 
-            if (isGrounded) {
+            if (isGrounded) { // On ground
                 rigidBody.velocity = new Vector2(horizontalInput * moveSpeed, rigidBody.velocity.y);
-            } else {
-                rigidBody.velocity = new Vector2(horizontalInput * (moveSpeed/2), rigidBody.velocity.y);
+            } else { // In air
+                rigidBody.velocity = new Vector2(horizontalInput * airMoveSpeed, rigidBody.velocity.y);
             }
         }
         
@@ -159,34 +176,116 @@ public class PlayerController2D : MonoBehaviour
         }
     }
 
+    #endregion Movement/Gravity functions
+
+
+    //------------------------------------
+    #region Collision functions
+
     private void CollisionChecks() {
 
         // Check if the player is grounded
         isGrounded = collFeet.IsTouchingLayers(groundLayer);
     }
 
-    private void OnTriggerEnter2D(Collider2D other) {
+    private void OnCollisionEnter2D(Collision2D other) {
 
-        // Debug.Log("Trigger entered: " + other.gameObject.name);
-        
-        if(other.CompareTag("Spike")) {
-            
-            rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
+        if (other.gameObject.CompareTag("Enemy")) {
+
             DamageHealth(1);
         }
-        else if (other.CompareTag("RespawnTrigger")) {
+        else if(other.gameObject.CompareTag("Spike")) {
+    
+            
+            Vector2 playerPos = transform.position;
+            Vector2 spikePos = other.transform.position;
+            Vector2 awayDirection = (playerPos - spikePos).normalized;
+            
+            Debug.Log($"Player position: {playerPos}");
+            Debug.Log($"Spike position: {spikePos}" );
+            Debug.Log($"Away direction (before normalization): {playerPos - spikePos}");
+            Debug.Log($"Away direction (after normalization): {awayDirection}");
+            
+            Vector2 force = awayDirection;
+            force *= 3f;
+            Debug.Log($"Applied force: {force}");
+            
+            // rigidBody.AddForce(force, ForceMode2D.Impulse);
+            rigidBody.velocity = force;
+            Debug.DrawRay(transform.position, awayDirection, Color.red, 3f);
 
-            Respawn();
+
+
+            // rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
+            // DamageHealth(1);
+        }
+    }
+    private void OnTriggerEnter2D(Collider2D other) {
+
+        if (other.gameObject.CompareTag("RespawnTrigger")) {
+
+            Respawn(lastCheckpoint);
+        }
+        else if (other.gameObject.CompareTag("Checkpoint")) {
+
+            SetCheckpoint(other.transform.position);
         }
     }
 
+
+    #endregion Collision functions
+
+
+
+
+
+    //------------------------------------
+    #region  Checkpoint functions
+    
+    private void SetSpawnPoint(Vector2 newSpawnPoint) {
+
+        spawnPoint = newSpawnPoint;
+        SetCheckpoint(spawnPoint);
+        Debug.Log("Set spawn point to: " + spawnPoint);
+    }
+
+    private void SetCheckpoint(Vector2 newCheckpoint) {
+
+        lastCheckpoint = newCheckpoint;
+        Debug.Log("Set checkpoint to: " + lastCheckpoint);
+    }
+    private void Respawn(Vector2 position) {
+
+        rigidBody.velocity = Vector2.zero;
+        transform.position = position;
+        currentHealth = maxHealth;
+        deaths += 1;
+        if (spawnEffect) spawnEffect.Play();
+        Debug.Log("Respawned");
+    }
+
+    [Button] private void RespawnFromCheckpoint() {
+
+        Respawn(lastCheckpoint);
+    }
+
+    [Button] private void RespawnFromSpawnPoint() {
+
+        Respawn(spawnPoint);
+    }
+    
+    #endregion Checkpoint functions
+
+
+    //------------------------------------
+    #region Other functions
 
     private void DamageHealth(int amount) {
 
         currentHealth -= amount;
         if (currentHealth <= 0) {
             if (deathEffect) deathEffect.Play();
-            Respawn();
+            Respawn(lastCheckpoint);
         }
         Debug.Log("Current health: " + currentHealth);
     }
@@ -200,6 +299,7 @@ public class PlayerController2D : MonoBehaviour
         }
     }
     
+
     private void CountTimers() {
 
         if (jumpBufferTimer <= holdJumpRequestTime) {
@@ -210,19 +310,5 @@ public class PlayerController2D : MonoBehaviour
     }
 
     
-    [Button] public void SetSpawnPoint(Vector2 newSpawnPoint) {
-
-        spawnPoint = newSpawnPoint;
-        Debug.Log("Set spawn point to: " + spawnPoint);
-    }
-
-    
-    [Button] public void Respawn() {
-
-        transform.position = spawnPoint;
-        currentHealth = maxHealth;
-        if (spawnEffect) spawnEffect.Play();
-        Debug.Log("Respawned");
-    }
-
+    #endregion Other functions
 }
