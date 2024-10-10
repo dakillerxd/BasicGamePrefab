@@ -167,7 +167,7 @@ GameObject:
   - component: {fileID: 4041634718516341635}
   - component: {fileID: 6396346327852207201}
   m_Layer: 7
-  m_Name: Player2
+  m_Name: PlayerUltimate
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -258,7 +258,7 @@ Rigidbody2D:
   m_LinearDrag: 0
   m_AngularDrag: 0
   m_GravityScale: 0
-  m_Material: {fileID: 6200000, guid: f485e07fd31ce7c40b9dc5842ad6408e, type: 2}
+  m_Material: {fileID: 6200000, guid: 887b11ab5dc02cb4b917e5f3fce429cd, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0

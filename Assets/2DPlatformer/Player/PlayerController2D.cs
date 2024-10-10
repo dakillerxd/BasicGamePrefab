@@ -192,32 +192,31 @@ public class PlayerController2D : MonoBehaviour
 
         if (other.gameObject.CompareTag("Enemy")) {
 
-            DamageHealth(1);
+            DamageHealth(maxHealth);
         }
         else if(other.gameObject.CompareTag("Spike")) {
     
             
-            Vector2 playerPos = transform.position;
-            Vector2 spikePos = other.transform.position;
-            Vector2 awayDirection = (playerPos - spikePos).normalized;
+            // Vector2 playerPos = transform.position;
+            // Vector2 spikePos = other.transform.position;
+            // Vector2 awayDirection = (playerPos - spikePos).normalized;
             
-            Debug.Log($"Player position: {playerPos}");
-            Debug.Log($"Spike position: {spikePos}" );
-            Debug.Log($"Away direction (before normalization): {playerPos - spikePos}");
-            Debug.Log($"Away direction (after normalization): {awayDirection}");
+            // Debug.Log($"Player position: {playerPos}");
+            // Debug.Log($"Spike position: {spikePos}" );
+            // Debug.Log($"Away direction (before normalization): {playerPos - spikePos}");
+            // Debug.Log($"Away direction (after normalization): {awayDirection}");
             
-            Vector2 force = awayDirection;
-            force *= 3f;
-            Debug.Log($"Applied force: {force}");
+            // Vector2 force = awayDirection;
+            // force *= 3f;
+            // Debug.Log($"Applied force: {force}");
             
             // rigidBody.AddForce(force, ForceMode2D.Impulse);
-            rigidBody.velocity = force;
-            Debug.DrawRay(transform.position, awayDirection, Color.red, 3f);
+            // Debug.DrawRay(transform.position, awayDirection, Color.red, 3f);
 
 
 
             // rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
-            // DamageHealth(1);
+            DamageHealth(maxHealth);
         }
     }
     private void OnTriggerEnter2D(Collider2D other) {
@@ -229,6 +228,9 @@ public class PlayerController2D : MonoBehaviour
         else if (other.gameObject.CompareTag("Checkpoint")) {
 
             SetCheckpoint(other.transform.position);
+            other.gameObject.GetComponent<Checkpoint2D>().SetActive(true);
+            
+            
         }
     }
 
@@ -249,7 +251,7 @@ public class PlayerController2D : MonoBehaviour
         Debug.Log("Set spawn point to: " + spawnPoint);
     }
 
-    private void SetCheckpoint(Vector2 newCheckpoint) {
+    public void SetCheckpoint(Vector2 newCheckpoint) {
 
         lastCheckpoint = newCheckpoint;
         Debug.Log("Set checkpoint to: " + lastCheckpoint);
