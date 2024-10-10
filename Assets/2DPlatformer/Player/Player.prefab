@@ -129,8 +129,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHealth: 2
   spawnPoint: {x: 0, y: 0}
+  lastCheckpoint: {x: 0, y: 0}
   moveSpeed: 4
+  airMoveSpeed: 3
   runSpeed: 5
+  airRunSpeed: 5
   jumpForce: 4
   maxAirJumps: 1
   holdJumpRequestTime: 0.2
@@ -145,6 +148,8 @@ MonoBehaviour:
     m_Bits: 64
   airJumpEffect: {fileID: 0}
   runEffect: {fileID: 0}
+  deathEffect: {fileID: 0}
+  spawnEffect: {fileID: 0}
   horizontalInput: 0
   runInput: 0
   jumpRequested: 0
@@ -152,6 +157,7 @@ MonoBehaviour:
   remainingAirJumps: 0
   jumpBufferTimer: 0
   currentHealth: 0
+  deaths: 0
 --- !u!1 &8348743168451648775
 GameObject:
   m_ObjectHideFlags: 0
@@ -216,7 +222,7 @@ BoxCollider2D:
   m_IsTrigger: 0
   m_UsedByEffector: 0
   m_UsedByComposite: 0
-  m_Offset: {x: 0, y: 0.015382424}
+  m_Offset: {x: 0, y: 0.010267988}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0, y: 0}
@@ -227,7 +233,7 @@ BoxCollider2D:
     adaptiveTiling: 0
   m_AutoTiling: 0
   serializedVersion: 2
-  m_Size: {x: 0.3, y: 0.2695134}
+  m_Size: {x: 0.3, y: 0.28946403}
   m_EdgeRadius: 0
 --- !u!1 &8676561356049123366
 GameObject:
@@ -293,7 +299,7 @@ BoxCollider2D:
   m_IsTrigger: 0
   m_UsedByEffector: 0
   m_UsedByComposite: 0
-  m_Offset: {x: 0.0011018813, y: -0.13535006}
+  m_Offset: {x: 0, y: -0.14048171}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0, y: 0}
@@ -304,5 +310,5 @@ BoxCollider2D:
     adaptiveTiling: 0
   m_AutoTiling: 0
   serializedVersion: 2
-  m_Size: {x: 0.2874635, y: 0.029299885}
+  m_Size: {x: 0.29, y: 0.010725498}
   m_EdgeRadius: 0

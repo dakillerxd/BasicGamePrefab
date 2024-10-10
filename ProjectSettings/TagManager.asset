@@ -7,6 +7,7 @@ TagManager:
   - Spike
   - Enemy
   - RespawnTrigger
+  - Checkpoint
   layers:
   - Default
   - TransparentFX
