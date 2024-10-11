@@ -9,10 +9,8 @@ using UnityEngine.UI;
 public class PlayerController2D : MonoBehaviour
 {
     [Tab("Player Settings")]
-    [Header("Spawn Settings")]
     [SerializeField] private int maxHealth = 2;
-    [SerializeField] private Vector2 spawnPoint;
-    [SerializeField] private Vector2 lastCheckpoint;
+    [SerializeField] [Range(0, 1f)] private float invincibilityTime = 1f;
 
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 4f;
@@ -20,7 +18,13 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private bool canRun = true;
     [SerializeField] private float runSpeed = 5f;
     [SerializeField] private float airRunSpeed = 6f;
-    
+    [SerializeField] [Range(0, 1f)] private float stepHeight = 0.12f;
+    [SerializeField] [Range(0, 1f)] private float stepWidth = 0.2f;
+    [SerializeField] [Range(0, 1f)] private float stepCheckDistance = 0.04f;
+    [SerializeField] private bool canWallSlide = true;
+    [SerializeField] private float wallSlideSpeed = 3f;
+    [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private LayerMask stepLayer;
 
     [Header("Jump Settings")]
     [SerializeField] private float jumpForce = 4f;
@@ -30,33 +34,48 @@ public class PlayerController2D : MonoBehaviour
     [Header("Gravity Settings")]
     [SerializeField] private float gravityForce = 9.8f;
     [SerializeField] [Range(0f, 3f)] private float fallMultiplier = 2.5f; // Gravity multiplayer when the payer is not jumping
-    [SerializeField] private float maxFallSpeed = 10f;
+    [SerializeField] private float maxFallSpeed = 15f;
+    [SerializeField] private bool canTakeFallDamage = true;
 
 
     [Header("Debug")]
     [SerializeField] private bool showDebugText = false;
+    [SerializeField] private Vector2 spawnPoint;
+    [SerializeField] private Vector2 lastCheckpoint;
     [ReadOnly] [SerializeField] private float horizontalInput;
     [ReadOnly] [SerializeField] private bool runInput;
     [ReadOnly] [SerializeField] private bool wasRunning;
     [ReadOnly] [SerializeField] private bool jumpRequested;
     [ReadOnly] [SerializeField] private bool isGrounded;
+    [ReadOnly] [SerializeField] private bool isTouchingWall;
     [ReadOnly] [SerializeField] private int remainingAirJumps;
     [ReadOnly] [SerializeField] private float jumpBufferTimer = 0;
     [ReadOnly] [SerializeField] private int currentHealth;
     [ReadOnly] [SerializeField] private int deaths;
+    [ReadOnly] [SerializeField] private bool isInvincible;
+    [ReadOnly] [SerializeField] private float invincibilityTimer;
+    [ReadOnly] [SerializeField] private bool isFreeFalling;
 
     [Tab("References")]
-    [Header("References")]
     [SerializeField] private Rigidbody2D rigidBody;
     [SerializeField] private SpriteRenderer spriteRenderer;
     [SerializeField] private Collider2D collBody;
     [SerializeField] private Collider2D collFeet;
-    [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private TextMeshProUGUI debugText;
+
+    [Header("Vfx")]
     [SerializeField] private ParticleSystem airJumpEffect;
     [SerializeField] private ParticleSystem runEffect;
     [SerializeField] private ParticleSystem deathEffect;
     [SerializeField] private ParticleSystem spawnEffect;
-    [SerializeField] private TextMeshProUGUI debugText;
+
+    [Header("Sfx")]
+    [SerializeField] private AudioSource jumpSfx;
+    [SerializeField] private AudioSource spawnSfx;
+    [SerializeField] private AudioSource deathSfx;
+
+
+
 
  
 
@@ -83,46 +102,12 @@ public class PlayerController2D : MonoBehaviour
         CollisionChecks();
         HandleGravity();
         HandleMovement();
+        HandleStepClimbing();
         HandleJump();
         
 
-        if (showDebugText) { debugText.enabled = showDebugText; UpdateDebugText(); } else { debugText.enabled = false; }
+        if (showDebugText && debugText) { debugText.enabled = showDebugText; UpdateDebugText(); } else { debugText.enabled = false; }
     }
-
-    private void UpdateDebugText() {
-
-        debugText.text = 
-        $"Health: {currentHealth} / {maxHealth} \n" +
-        $"Deaths: {deaths}\n" +
-        $"Velocity: {rigidBody.velocity}\n" +
-        $"Grounded: {isGrounded}\n" +
-        $"Air Jumps: {remainingAirJumps} / {maxAirJumps} \n";
-
-        // $"Jump Buffer Timer: {jumpBufferTimer}\n"
-        // $"Horizontal Input: {horizontalInput}\n" +
-        // $"Run Input: {runInput}\n" +
-        // $"Was Running: {wasRunning}\n" +
-        // $"Jump Requested: {jumpRequested}\n" +
-
-    }
-
-    private void CheckForInput() {
-
-        // Check for horizontal movement
-        horizontalInput = Input.GetAxis("Horizontal");
-
-        // Check for run input
-        if (canRun) {runInput = Input.GetButton("Run");}
-
-        // Set jumpRequested if Jump button is pressed
-        if (Input.GetButtonDown("Jump"))
-        {
-            jumpRequested = true;
-            jumpBufferTimer = 0f;
-        }
-    }
-
-
 
 
 
@@ -135,27 +120,63 @@ public class PlayerController2D : MonoBehaviour
         if (isGrounded) { // On Ground
             
             if (canRun && runInput) { // Run
+
                 movementSpeed *= runSpeed;
                 wasRunning = true;
+                if (runEffect && runEffect.isStopped) {runEffect.Play();}
 
             } else { // Walk
+
                 movementSpeed *= moveSpeed;
                 wasRunning = false;
+                if (runEffect && runEffect.isPlaying) {runEffect.Stop();}
             }
 
         } else { // In air
 
             if (canRun && wasRunning) { // Run
+
                 movementSpeed *= airRunSpeed;
+                if (runEffect && runEffect.isPlaying) {runEffect.Stop();}
+                
+
             } else { // Walk
+
                 movementSpeed *= airMoveSpeed;
                 wasRunning = false;
+                if (runEffect && runEffect.isPlaying) {runEffect.Stop();}
             }
         }
 
         rigidBody.velocity = new Vector2(movementSpeed, rigidBody.velocity.y);
         // Debug.Log($"Movement speed: {movementSpeed}");
 
+    }
+
+    private void HandleStepClimbing()
+    {
+        if (!isGrounded) return; // Only check for steps when grounded
+
+        // Determine the direction based on horizontal input
+        Vector2 moveDirection = new Vector2(horizontalInput, 0).normalized;
+        if (moveDirection == Vector2.zero) return; // Not moving horizontally
+
+        // Check for step in front of the player
+        RaycastHit2D hitLower = Physics2D.Raycast(collFeet.bounds.center, moveDirection, collFeet.bounds.extents.x + stepCheckDistance, stepLayer);
+
+        // Draw the raycast for debugging
+        Debug.DrawRay(collFeet.bounds.center, moveDirection * (collFeet.bounds.extents.x + stepCheckDistance), Color.red);
+
+        if (hitLower.collider != null) {
+
+            // Check if there's space above the step
+            RaycastHit2D hitUpper = Physics2D.Raycast(collFeet.bounds.center + new Vector3(0, stepHeight, 0), moveDirection, collFeet.bounds.extents.x + stepCheckDistance, stepLayer) ;
+
+            if (hitUpper.collider == null) {
+                // Move the player up
+                rigidBody.position += new Vector2(horizontalInput * stepWidth, stepHeight);
+            }
+        }
     }
 
     private void HandleJump() {
@@ -169,15 +190,18 @@ public class PlayerController2D : MonoBehaviour
             }
 
             if (isGrounded) { // Jump on ground
+
                 rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
                 jumpRequested = false;
+                if (jumpSfx) {jumpSfx.Play();}
             }
             else { // Air jump
                 if (remainingAirJumps > 0) {
                     rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
                     remainingAirJumps--;
                     jumpRequested = false;
-                    if (airJumpEffect) airJumpEffect.Play();
+                    if (airJumpEffect) {airJumpEffect.Play();}
+                    if (jumpSfx) {jumpSfx.Play();}
                 }
             }
         }
@@ -189,25 +213,48 @@ public class PlayerController2D : MonoBehaviour
     }
 
 
-    private void HandleGravity() {
+    private void HandleGravity()
+    {
+        if (!isGrounded) // Apply gravity when not grounded
+        {
+            // Apply gravity and apply the fall multiplier if the player is not jumping
+            float gravityMultiplier = rigidBody.velocity.y > 0 ? 1f : fallMultiplier;
+            rigidBody.velocity += gravityForce * gravityMultiplier * Time.fixedDeltaTime * Vector2.down;
 
-        // the player is not on the ground
-        if (!isGrounded) { 
 
-            if (rigidBody.velocity.y > 0) { // Apply gravity while jumping
-                rigidBody.velocity += gravityForce * Time.fixedDeltaTime * Vector2.down;;
+            // Cap fall speed
+            if (canWallSlide && isTouchingWall) { // When wall sliding
+
+                if (rigidBody.velocity.y < -wallSlideSpeed) {
+
+                    rigidBody.velocity = new Vector2(rigidBody.velocity.x, -wallSlideSpeed);
+                    isFreeFalling = false;
+                }
             }
-            else { // Apply gravity with fall multiplier
-                rigidBody.velocity += fallMultiplier * gravityForce * Time.fixedDeltaTime * Vector2.down;
+            else // When free falling
+            {
+                if (rigidBody.velocity.y < -maxFallSpeed) {
+
+                    isFreeFalling = true;
+                    rigidBody.velocity = new Vector2(rigidBody.velocity.x, -maxFallSpeed);
+
+                } else {
+
+                    isFreeFalling = false;
+                }
             }
-        } else { // Apply gravity when on ground
+
+        } else { // Apply gravity when grounded
+
             rigidBody.velocity += 0.1f * Time.fixedDeltaTime * Vector2.down;
-        }
 
+            // Check for fall damage when landing
+            if (canTakeFallDamage && isFreeFalling) {
 
-        // Cap fall speed
-        if (rigidBody.velocity.y < -maxFallSpeed) {
-            rigidBody.velocity = new Vector2(rigidBody.velocity.x, -maxFallSpeed);
+                DamageHealth(1, "Took fall damage", false);
+                rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce/2);
+                isFreeFalling = false;
+            }
         }
     }
 
@@ -222,34 +269,50 @@ public class PlayerController2D : MonoBehaviour
 
         // Check if the player is grounded
         isGrounded = collFeet.IsTouchingLayers(groundLayer);
+
+        // Check if the player is touching a wall
+        isTouchingWall = collBody.IsTouchingLayers(groundLayer);
     }
 
-    private void OnCollisionEnter2D(Collision2D other) {
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        switch (collision.gameObject.tag)
+        {
+            case "Enemy":
 
-        if (other.gameObject.CompareTag("Enemy")) {
+                DamageHealth(maxHealth, "Damaged by: " + collision.gameObject.name);
+                break;
 
-            DamageHealth(maxHealth);
-        }
-        else if(other.gameObject.CompareTag("Spike")) {
+            case "Spike":
 
-            // rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
-            DamageHealth(maxHealth);
-        }
-    }
-    private void OnTriggerEnter2D(Collider2D other) {
-
-        if (other.gameObject.CompareTag("RespawnTrigger")) {
-
-            Respawn(lastCheckpoint);
-        }
-        else if (other.gameObject.CompareTag("Checkpoint")) {
-
-            if (other.gameObject.GetComponent<Checkpoint2D>().active == false) {
-                other.gameObject.GetComponent<Checkpoint2D>().SetActive(true);
-                SetCheckpoint(other.transform.position);
+                if (currentHealth > 0) { rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce); }
+                DamageHealth( 1, "Damaged by: " + collision.gameObject.name);
                 
-            }
-            
+                break;
+        }
+    }
+
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        switch (collision.gameObject.tag)
+        {
+            case "RespawnTrigger":
+
+                DamageHealth(maxHealth, "Fell off the map");
+
+                break;
+            case "Checkpoint":
+
+                var checkpoint = collision.gameObject.GetComponent<Checkpoint2D>();
+
+                if (!checkpoint.active) {
+
+                    checkpoint.SetActive(true);
+                    SetCheckpoint(collision.transform.position);
+                }
+
+                break;
         }
     }
 
@@ -277,12 +340,14 @@ public class PlayerController2D : MonoBehaviour
     }
     private void Respawn(Vector2 position) {
 
+        isInvincible = false;
         transform.position = position;
         rigidBody.velocity = Vector2.zero;
         currentHealth = maxHealth;
         deaths += 1;
-        if (spawnEffect) spawnEffect.Play();
-        Debug.Log("Respawned, Deaths: " + deaths);
+        if (spawnEffect) {spawnEffect.Play();}
+        if (spawnSfx) {spawnSfx.Play();}
+
     }
 
     [Button] private void RespawnFromCheckpoint() {
@@ -301,16 +366,64 @@ public class PlayerController2D : MonoBehaviour
     //------------------------------------
     #region Other functions
 
-    private void DamageHealth(int amount) {
 
-        currentHealth -= amount;
-        Debug.Log("Damaged, Health: " + currentHealth);
+    private void UpdateDebugText() {
+
+        debugText.text = 
+        $"Health: {currentHealth} / {maxHealth} \n" +
+        $"Deaths: {deaths}\n\n" +
         
+        $"Velocity: {rigidBody.velocity}\n" +
+        $"Invincible: {isInvincible}\n" +
+        $"Grounded: {isGrounded}\n" +
+        $"Wall Sliding: {canWallSlide & isTouchingWall & !isGrounded}\n" +
+        $"Free Falling: {isFreeFalling}\n" +
+        $"Air Jumps: {remainingAirJumps} / {maxAirJumps} \n";
+
+        // $"Jump Buffer Timer: {jumpBufferTimer}\n"
+        // $"Horizontal Input: {horizontalInput}\n" +
+        // $"Run Input: {runInput}\n" +
+        // $"Was Running: {wasRunning}\n" +
+        // $"Jump Requested: {jumpRequested}\n" +
+        // $"Invincibility Timer: {invincibilityTimer}\n"
+
+    }
+
+    private void CheckForInput() {
+
+        // Check for horizontal movement
+        horizontalInput = Input.GetAxis("Horizontal");
+
+        // Check for run input
+        if (canRun) {runInput = Input.GetButton("Run");}
+
+        // Set jumpRequested if Jump button is pressed
+        if (Input.GetButtonDown("Jump"))
+        {
+            jumpRequested = true;
+            jumpBufferTimer = 0f;
+        }
+    }
+
+
+    private void DamageHealth(int damage, string cause = "", bool setInvincible = true) {
+
+
+        if (currentHealth > 0 && !isInvincible) {
+            
+            currentHealth -= damage;
+            isInvincible = setInvincible;
+            Debug.Log(cause);
+
+        } 
+
         if (currentHealth <= 0) {
-            if (deathEffect) deathEffect.Play();
+
+            isInvincible = true;
+            if (deathEffect) {deathEffect.Play();}
+            if (deathSfx) {deathSfx.Play();}
             Respawn(lastCheckpoint);
         }
-        
     }
 
     private void ControlSprite() {
@@ -320,6 +433,12 @@ public class PlayerController2D : MonoBehaviour
         } else if (horizontalInput < 0) {
             spriteRenderer.flipX = true;
         }
+
+        if (isInvincible) {
+            spriteRenderer.color = new Color(1f, 1f, 1f, 0.5f);
+        } else {
+            spriteRenderer.color = new Color(1f, 1f, 1f, 1f);
+        }
     }
     
 
@@ -328,6 +447,18 @@ public class PlayerController2D : MonoBehaviour
         if (jumpBufferTimer <= holdJumpRequestTime) {
 
             jumpBufferTimer += Time.deltaTime;
+        }
+
+
+        if (isInvincible) {
+
+            invincibilityTimer += Time.deltaTime;
+
+            if (invincibilityTimer >= invincibilityTime) {
+
+                isInvincible = false;
+                invincibilityTimer = 0f;
+            }
         }
         
     }
