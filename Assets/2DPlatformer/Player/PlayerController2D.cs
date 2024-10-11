@@ -2,10 +2,13 @@ using System.Collections;
 using System.Collections.Generic;
 using VInspector;
 using UnityEngine;
+using TMPro;
+using System;
+using UnityEngine.UI;
 
 public class PlayerController2D : MonoBehaviour
 {
-    [Tab("Bla")]
+    [Tab("Player Settings")]
     [Header("Spawn Settings")]
     [SerializeField] private int maxHealth = 2;
     [SerializeField] private Vector2 spawnPoint;
@@ -20,27 +23,18 @@ public class PlayerController2D : MonoBehaviour
     
 
     [Header("Jump Settings")]
-    [SerializeField] private float jumpForce = 5f;
+    [SerializeField] private float jumpForce = 4f;
     [SerializeField] [Range(0, 5f)] private int maxAirJumps = 1;
     [SerializeField] [Range(0.1f, 1f)] private float holdJumpRequestTime = 0.2f; // For how long the jump buffer will hold
 
     [Header("Gravity Settings")]
     [SerializeField] private float gravityForce = 9.8f;
     [SerializeField] [Range(0f, 3f)] private float fallMultiplier = 2.5f; // Gravity multiplayer when the payer is not jumping
+    [SerializeField] private float maxFallSpeed = 10f;
 
-
-    [Header("References")]
-    [SerializeField] private Rigidbody2D rigidBody;
-    [SerializeField] private SpriteRenderer spriteRenderer;
-    [SerializeField] private Collider2D collBody;
-    [SerializeField] private Collider2D collFeet;
-    [SerializeField] private LayerMask groundLayer;
-    [SerializeField] private ParticleSystem airJumpEffect;
-    [SerializeField] private ParticleSystem runEffect;
-    [SerializeField] private ParticleSystem deathEffect;
-    [SerializeField] private ParticleSystem spawnEffect;
 
     [Header("Debug")]
+    [SerializeField] private bool showDebugText = false;
     [ReadOnly] [SerializeField] private float horizontalInput;
     [ReadOnly] [SerializeField] private bool runInput;
     [ReadOnly] [SerializeField] private bool wasRunning;
@@ -51,12 +45,29 @@ public class PlayerController2D : MonoBehaviour
     [ReadOnly] [SerializeField] private int currentHealth;
     [ReadOnly] [SerializeField] private int deaths;
 
+    [Tab("References")]
+    [Header("References")]
+    [SerializeField] private Rigidbody2D rigidBody;
+    [SerializeField] private SpriteRenderer spriteRenderer;
+    [SerializeField] private Collider2D collBody;
+    [SerializeField] private Collider2D collFeet;
+    [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private ParticleSystem airJumpEffect;
+    [SerializeField] private ParticleSystem runEffect;
+    [SerializeField] private ParticleSystem deathEffect;
+    [SerializeField] private ParticleSystem spawnEffect;
+    [SerializeField] private TextMeshProUGUI debugText;
+
  
+
     private void Start() {
 
+        // QualitySettings.vSyncCount = 0;
+        // Application.targetFrameRate = 60;
         currentHealth = maxHealth;
         deaths = 0;
         SetSpawnPoint(transform.position);
+
     }
 
 
@@ -74,8 +85,26 @@ public class PlayerController2D : MonoBehaviour
         HandleMovement();
         HandleJump();
         
+
+        if (showDebugText) { debugText.enabled = showDebugText; UpdateDebugText(); } else { debugText.enabled = false; }
     }
-    
+
+    private void UpdateDebugText() {
+
+        debugText.text = 
+        $"Health: {currentHealth} / {maxHealth} \n" +
+        $"Deaths: {deaths}\n" +
+        $"Velocity: {rigidBody.velocity}\n" +
+        $"Grounded: {isGrounded}\n" +
+        $"Air Jumps: {remainingAirJumps} / {maxAirJumps} \n";
+
+        // $"Jump Buffer Timer: {jumpBufferTimer}\n"
+        // $"Horizontal Input: {horizontalInput}\n" +
+        // $"Run Input: {runInput}\n" +
+        // $"Was Running: {wasRunning}\n" +
+        // $"Jump Requested: {jumpRequested}\n" +
+
+    }
 
     private void CheckForInput() {
 
@@ -174,7 +203,14 @@ public class PlayerController2D : MonoBehaviour
         } else { // Apply gravity when on ground
             rigidBody.velocity += 0.1f * Time.fixedDeltaTime * Vector2.down;
         }
+
+
+        // Cap fall speed
+        if (rigidBody.velocity.y < -maxFallSpeed) {
+            rigidBody.velocity = new Vector2(rigidBody.velocity.x, -maxFallSpeed);
+        }
     }
+
 
     #endregion Movement/Gravity functions
 

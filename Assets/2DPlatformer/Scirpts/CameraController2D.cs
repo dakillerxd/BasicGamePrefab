@@ -19,7 +19,7 @@ public class CameraController2D : MonoBehaviour
     [SerializeField] private float zoomSpeed = 2f;
     [SerializeField] private float minZoom = 3f;
     [SerializeField] private float maxZoom = 10f;
-    [SerializeField] private float targetZoom = 5f;
+    [ReadOnly] [SerializeField] private float targetZoom = 5f;
 
     private Camera cam;
     private Vector3 currentVelocity;
