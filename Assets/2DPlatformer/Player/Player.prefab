@@ -129,11 +129,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHealth: 2
   invincibilityTime: 0.3
-  moveSpeed: 4
-  airMoveSpeed: 3
+  canTakeFallDamage: 0
+  maxFallDamage: 1
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
+  moveSpeed: 4
+  airMoveSpeed: 3
+  moveAcceleration: 0.5
+  moveDeceleration: 0.25
   canRun: 1
   runSpeed: 5
   airRunSpeed: 6
@@ -146,41 +150,34 @@ MonoBehaviour:
     m_Bits: 64
   canWallSlide: 1
   wallSlideSpeed: 3
+  canDash: 1
+  dashForce: 5
+  maxDashes: 1
+  canFastFall: 1
+  fastFallAcceleration: 0.1
   jumpForce: 4
   maxAirJumps: 1
   holdJumpRequestTime: 0.2
   gravityForce: 9.8
   fallMultiplier: 2.5
   maxFallSpeed: 15
-  canTakeFallDamage: 1
   showDebugText: 1
   spawnPoint: {x: 0, y: 0}
   lastCheckpoint: {x: 0, y: 0}
-  horizontalInput: 0
-  runInput: 0
-  wasRunning: 0
-  jumpRequested: 0
-  isGrounded: 0
-  isTouchingWall: 0
-  remainingAirJumps: 0
-  jumpBufferTimer: 0
-  currentHealth: 0
-  deaths: 0
-  isInvincible: 0
-  invincibilityTimer: 0
-  isFreeFalling: 0
   rigidBody: {fileID: 2783392023027556574}
   spriteRenderer: {fileID: 4017478420366802647}
   collBody: {fileID: 6793365586128216939}
   collFeet: {fileID: 6324724260074634322}
-  debugText: {fileID: 0}
   airJumpEffect: {fileID: 0}
   runEffect: {fileID: 0}
   deathEffect: {fileID: 0}
   spawnEffect: {fileID: 0}
+  dashEffect: {fileID: 0}
   jumpSfx: {fileID: 0}
   spawnSfx: {fileID: 0}
   deathSfx: {fileID: 0}
+  dashSfx: {fileID: 0}
+  debugText: {fileID: 0}
 --- !u!1 &8348743168451648775
 GameObject:
   m_ObjectHideFlags: 0

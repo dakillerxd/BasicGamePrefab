@@ -5,6 +5,8 @@ using UnityEngine;
 using TMPro;
 using System;
 using UnityEngine.UI;
+using System.Text;
+using Unity.VisualScripting;
 
 public class PlayerController2D : MonoBehaviour
 {
@@ -12,15 +14,30 @@ public class PlayerController2D : MonoBehaviour
     [Header("Settings")]
     [SerializeField] private int maxHealth = 2;
     [SerializeField] [Range(0, 1f)] private float invincibilityTime = 1f;
-    [SerializeField] private float moveSpeed = 4f;
-    [SerializeField] private float airMoveSpeed = 3f;
+    [SerializeField] private bool canTakeFallDamage = true;
+        [ShowIf("canTakeFallDamage")]
+        [SerializeField] private int maxFallDamage = 1;
+        [EndIf]
     [SerializeField] private LayerMask groundLayer;
+    private bool isGrounded;
+    private int currentHealth;
+    private int deaths;
+    private bool isInvincible;
+    private float invincibilityTimer;
+    private float horizontalInput;
+    private float verticalInput;
 
     [Foldout("Movement Settings")]
+    [SerializeField] private float moveSpeed = 4f;
+    [SerializeField] private float airMoveSpeed = 3f;
+    [SerializeField] [Range(0.1f, 2f)] private float moveAcceleration = 1f;
+    [SerializeField] [Range(0.05f, 0.5f)] private float moveDeceleration = 0.25f;
     [SerializeField] private bool canRun = true;
         [ShowIf("canRun")] 
         [SerializeField] private float runSpeed = 5f;
         [SerializeField] private float airRunSpeed = 6f; 
+        private bool runInput;
+        private bool wasRunning;
         [EndIf]
     [SerializeField] private bool autoClimbSteps = true;
         [ShowIf("autoClimbSteps")]
@@ -32,6 +49,20 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private bool canWallSlide = true;
         [ShowIf("canWallSlide")]
         [SerializeField] private float wallSlideSpeed = 3f;
+        private bool isTouchingWall;
+        [EndIf]
+    [SerializeField] private bool canDash = true;
+        [ShowIf("canDash")]
+        [SerializeField] private float dashForce = 5f;
+        [SerializeField] private int maxDashes = 1;
+        [SerializeField] [Range(0.1f, 1f)] private float holdDashRequestTime = 0.1f; // For how long the dash buffer will hold
+        private int remainingDashes;
+        private bool dashRequested;
+        private float dashBufferTimer = 0;
+        [EndIf]
+    [SerializeField] private bool canFastFall = true;
+        [ShowIf("canFastFall")]
+        [SerializeField] [Range(0, 1f)] private float fastFallAcceleration = 0.1f;
         [EndIf]
     [EndFoldout]
 
@@ -39,63 +70,60 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private float jumpForce = 4f;
     [SerializeField] [Range(0, 5f)] private int maxAirJumps = 1;
     [SerializeField] [Range(0.1f, 1f)] private float holdJumpRequestTime = 0.2f; // For how long the jump buffer will hold
+    private bool jumpRequested;
+    private int remainingAirJumps;
+    private float jumpBufferTimer = 0;
     [EndFoldout]
 
     [Foldout("Gravity Settings")]
     [SerializeField] private float gravityForce = 9.8f;
     [SerializeField] [Range(0f, 3f)] private float fallMultiplier = 2.5f; // Gravity multiplayer when the payer is not jumping
     [SerializeField] private float maxFallSpeed = 15f;
-    [SerializeField] private bool canTakeFallDamage = true;
+    private bool atMaxFallSpeed;
     [EndFoldout]
-
+    
 
     [Header("Debug")]
     [SerializeField] private bool showDebugText = false;
     [SerializeField] private Vector2 spawnPoint;
     [SerializeField] private Vector2 lastCheckpoint;
-    [ReadOnly] [SerializeField] private float horizontalInput;
-    [ReadOnly] [SerializeField] private bool runInput;
-    [ReadOnly] [SerializeField] private bool wasRunning;
-    [ReadOnly] [SerializeField] private bool jumpRequested;
-    [ReadOnly] [SerializeField] private bool isGrounded;
-    [ReadOnly] [SerializeField] private bool isTouchingWall;
-    [ReadOnly] [SerializeField] private int remainingAirJumps;
-    [ReadOnly] [SerializeField] private float jumpBufferTimer = 0;
-    [ReadOnly] [SerializeField] private int currentHealth;
-    [ReadOnly] [SerializeField] private int deaths;
-    [ReadOnly] [SerializeField] private bool isInvincible;
-    [ReadOnly] [SerializeField] private float invincibilityTimer;
-    [ReadOnly] [SerializeField] private bool isFreeFalling;
     [EndTab]
+
 
     [Tab("References")]
     [SerializeField] private Rigidbody2D rigidBody;
     [SerializeField] private SpriteRenderer spriteRenderer;
     [SerializeField] private Collider2D collBody;
     [SerializeField] private Collider2D collFeet;
-    [SerializeField] private TextMeshProUGUI debugText;
 
-    [Header("Vfx")]
+    [Header("VFX")]
     [SerializeField] private ParticleSystem airJumpEffect;
     [SerializeField] private ParticleSystem runEffect;
     [SerializeField] private ParticleSystem deathEffect;
     [SerializeField] private ParticleSystem spawnEffect;
+    [SerializeField] private ParticleSystem dashEffect;
 
-    [Header("Sfx")]
+    [Header("SFX")]
     [SerializeField] private AudioSource jumpSfx;
     [SerializeField] private AudioSource spawnSfx;
     [SerializeField] private AudioSource deathSfx;
+    [SerializeField] private AudioSource dashSfx;
+
+    [Header("Debug")]
+    [SerializeField] private TextMeshProUGUI debugText;
     [EndTab]
 
 
 
+    private void Awake() {
 
+        // QualitySettings.vSyncCount = 0;
+        // Application.targetFrameRate = 60;
+    }
  
 
     private void Start() {
 
-        // QualitySettings.vSyncCount = 0;
-        // Application.targetFrameRate = 60;
         currentHealth = maxHealth;
         deaths = 0;
         SetSpawnPoint(transform.position);
@@ -115,7 +143,9 @@ public class PlayerController2D : MonoBehaviour
         CollisionChecks();
         HandleGravity();
         HandleMovement();
+        HandleDash();
         HandleStepClimbing();
+        HandleFastFall();
         HandleJump();
         
 
@@ -129,12 +159,14 @@ public class PlayerController2D : MonoBehaviour
     private void HandleMovement() {
 
         float movementSpeed = horizontalInput;
+        float movementAcceleration = moveAcceleration;
 
         if (isGrounded) { // On Ground
             
             if (canRun && runInput) { // Run
 
                 movementSpeed *= runSpeed;
+                movementAcceleration *= 1.5f;
                 wasRunning = true;
                 if (runEffect && runEffect.isStopped) {runEffect.Play();}
 
@@ -150,25 +182,63 @@ public class PlayerController2D : MonoBehaviour
             if (canRun && wasRunning) { // Run
 
                 movementSpeed *= airRunSpeed;
+                movementAcceleration /= 1.5f;
                 if (runEffect && runEffect.isPlaying) {runEffect.Stop();}
-                
 
             } else { // Walk
 
                 movementSpeed *= airMoveSpeed;
+                movementAcceleration /= 1.5f;
                 wasRunning = false;
                 if (runEffect && runEffect.isPlaying) {runEffect.Stop();}
             }
         }
+        
+        if (horizontalInput == 0) { // If the player is not moving use decelerate value
 
-        rigidBody.velocity = new Vector2(movementSpeed, rigidBody.velocity.y);
-        // Debug.Log($"Movement speed: {movementSpeed}");
+            movementAcceleration = moveDeceleration;
+        }
+
+        // Lerp the player movement
+        float newVelocityX  = Mathf.Lerp(rigidBody.velocity.x, movementSpeed, movementAcceleration);
+        rigidBody.velocity = new Vector2(newVelocityX , rigidBody.velocity.y);
+
 
     }
 
+    private void HandleFastFall() {
+
+        if (!canFastFall) return;
+        if (isGrounded && !atMaxFallSpeed) return;
+
+        if (verticalInput < 0) {
+
+            rigidBody.velocity = new Vector2(rigidBody.velocity.x, rigidBody.velocity.y - fastFallAcceleration);
+        }
+
+    }
+
+    private void HandleDash() {
+
+        if (!canDash) return;
+        if (dashRequested && remainingDashes > 0) {
+
+            dashRequested = false;
+            rigidBody.velocity = new Vector2(dashForce, rigidBody.velocity.y);
+            if (!isGrounded) { remainingDashes -= 1;}
+
+            if (dashEffect) {dashEffect.Play();}
+            if (dashSfx) {dashSfx.Play();}
+        }
+
+        if (isGrounded) { remainingDashes = maxDashes; } // Reset dashes when on ground
+    }
+
+
     private void HandleStepClimbing()
     {
-        if (autoClimbSteps && !isGrounded) return; // Only check for steps when grounded and can climb steps
+        if (!autoClimbSteps) return; // Only check for steps can climb steps
+        if (!isGrounded) return; // Only check for steps when grounded
 
         // Determine the direction based on horizontal input
         Vector2 moveDirection = new Vector2(horizontalInput, 0).normalized;
@@ -241,19 +311,19 @@ public class PlayerController2D : MonoBehaviour
                 if (rigidBody.velocity.y < -wallSlideSpeed) {
 
                     rigidBody.velocity = new Vector2(rigidBody.velocity.x, -wallSlideSpeed);
-                    isFreeFalling = false;
+                    atMaxFallSpeed = false;
                 }
             }
-            else // When free falling
+            else // When at max fall speed
             {
                 if (rigidBody.velocity.y < -maxFallSpeed) {
 
-                    isFreeFalling = true;
+                    atMaxFallSpeed = true;
                     rigidBody.velocity = new Vector2(rigidBody.velocity.x, -maxFallSpeed);
 
                 } else {
 
-                    isFreeFalling = false;
+                    atMaxFallSpeed = false;
                 }
             }
 
@@ -262,11 +332,11 @@ public class PlayerController2D : MonoBehaviour
             rigidBody.velocity += 0.1f * Time.fixedDeltaTime * Vector2.down;
 
             // Check for fall damage when landing
-            if (canTakeFallDamage && isFreeFalling) {
+            if (canTakeFallDamage && atMaxFallSpeed) {
 
-                DamageHealth(1, "Took fall damage", false);
+                DamageHealth(maxFallDamage, "Took fall damage", false);
                 rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce/2);
-                isFreeFalling = false;
+                atMaxFallSpeed = false;
             }
         }
     }
@@ -293,13 +363,13 @@ public class PlayerController2D : MonoBehaviour
         {
             case "Enemy":
 
-                DamageHealth(maxHealth, "Damaged by: " + collision.gameObject.name);
+                DamageHealth( 1, "Damaged by: " + collision.gameObject.name);
                 break;
 
             case "Spike":
 
-                if (currentHealth > 0) { rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce); }
                 DamageHealth( 1, "Damaged by: " + collision.gameObject.name);
+                if (currentHealth > 0) { rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce); }
                 
                 break;
         }
@@ -351,17 +421,6 @@ public class PlayerController2D : MonoBehaviour
         lastCheckpoint = newCheckpoint;
         Debug.Log("Set checkpoint to: " + lastCheckpoint);
     }
-    private void Respawn(Vector2 position) {
-
-        isInvincible = false;
-        transform.position = position;
-        rigidBody.velocity = Vector2.zero;
-        currentHealth = maxHealth;
-        deaths += 1;
-        if (spawnEffect) {spawnEffect.Play();}
-        if (spawnSfx) {spawnSfx.Play();}
-
-    }
 
     [Button] private void RespawnFromCheckpoint() {
 
@@ -379,33 +438,13 @@ public class PlayerController2D : MonoBehaviour
     //------------------------------------
     #region Other functions
 
-
-    private void UpdateDebugText() {
-
-        debugText.text = 
-        $"Health: {currentHealth} / {maxHealth} \n" +
-        $"Deaths: {deaths}\n\n" +
-        
-        $"Velocity: {rigidBody.velocity}\n" +
-        $"Invincible: {isInvincible}\n" +
-        $"Grounded: {isGrounded}\n" +
-        $"Wall Sliding: {canWallSlide & isTouchingWall & !isGrounded}\n" +
-        $"Free Falling: {isFreeFalling}\n" +
-        $"Air Jumps: {remainingAirJumps} / {maxAirJumps} \n";
-
-        // $"Jump Buffer Timer: {jumpBufferTimer}\n"
-        // $"Horizontal Input: {horizontalInput}\n" +
-        // $"Run Input: {runInput}\n" +
-        // $"Was Running: {wasRunning}\n" +
-        // $"Jump Requested: {jumpRequested}\n" +
-        // $"Invincibility Timer: {invincibilityTimer}\n"
-
-    }
-
     private void CheckForInput() {
 
-        // Check for horizontal movement
+        // Check for horizontal input
         horizontalInput = Input.GetAxis("Horizontal");
+
+        // Check for vertical input
+        verticalInput = Input.GetAxis("Vertical");
 
         // Check for run input
         if (canRun) {runInput = Input.GetButton("Run");}
@@ -416,23 +455,42 @@ public class PlayerController2D : MonoBehaviour
             jumpRequested = true;
             jumpBufferTimer = 0f;
         }
+
+        // Check for dash input
+        if (canDash && Input.GetButtonDown("Dash")) {
+
+            dashRequested = true;
+            dashBufferTimer = 0f;
+        }
+
+
     }
 
+    private void Respawn(Vector2 position) {
+
+        isInvincible = true;
+        invincibilityTimer = 0f;
+        deaths += 1;
+        transform.position = position;
+        rigidBody.velocity = new Vector2(0, 0);
+        currentHealth = maxHealth;
+        if (spawnEffect) {spawnEffect.Play();}
+        if (spawnSfx) {spawnSfx.Play();}
+        Debug.Log("Respawned, Deaths: " + deaths);
+    }
 
     private void DamageHealth(int damage, string cause = "", bool setInvincible = true) {
 
-
         if (currentHealth > 0 && !isInvincible) {
             
-            currentHealth -= damage;
             isInvincible = setInvincible;
+            invincibilityTimer = 0f;
+            currentHealth -= damage;
             Debug.Log(cause);
-
         } 
 
         if (currentHealth <= 0) {
 
-            isInvincible = true;
             if (deathEffect) {deathEffect.Play();}
             if (deathSfx) {deathSfx.Play();}
             Respawn(lastCheckpoint);
@@ -462,6 +520,10 @@ public class PlayerController2D : MonoBehaviour
             jumpBufferTimer += Time.deltaTime;
         }
 
+        if (dashBufferTimer <= holdDashRequestTime) {
+
+            dashBufferTimer += Time.deltaTime;
+        }
 
         if (isInvincible) {
 
@@ -473,9 +535,38 @@ public class PlayerController2D : MonoBehaviour
                 invincibilityTimer = 0f;
             }
         }
-        
     }
 
+private StringBuilder debugStringBuilder = new StringBuilder(256);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    private void UpdateDebugText() {
+
+    debugStringBuilder.Clear();
+    
+    debugStringBuilder.AppendFormat("Stats:\n");
+    debugStringBuilder.AppendFormat("Health: {0} / {1}\n", currentHealth, maxHealth);
+    debugStringBuilder.AppendFormat("Deaths: {0}\n\n", deaths);
+    debugStringBuilder.AppendFormat("Air Jumps: {0} / {1}\n", remainingAirJumps, maxAirJumps);
+    debugStringBuilder.AppendFormat("Dashes: {0} / {1}\n", remainingDashes, maxDashes);
+    debugStringBuilder.AppendFormat("Velocity: {0}\n", rigidBody.velocity);
+
+    debugStringBuilder.AppendFormat("\nStates:\n");
+    debugStringBuilder.AppendFormat("Invincible: {0}\n", isInvincible);
+    debugStringBuilder.AppendFormat("Grounded: {0}\n", isGrounded);
+    debugStringBuilder.AppendFormat("Running: {0}\n", wasRunning);
+    bool isWallSliding = canWallSlide && isTouchingWall && !isGrounded;
+    debugStringBuilder.AppendFormat("Wall Sliding: {0}\n", isWallSliding);
+    debugStringBuilder.AppendFormat("At Max Fall Speed: {0}\n", atMaxFallSpeed);
+
+    debugStringBuilder.AppendFormat("\nInputs:\n");
+    debugStringBuilder.AppendFormat("H/V: {0} / {1}\n", horizontalInput,verticalInput);
+    debugStringBuilder.AppendFormat("Run: {0}\n", runInput);
+    debugStringBuilder.AppendFormat("Jump: {0}\n", jumpRequested);
+    debugStringBuilder.AppendFormat("Dash: {0}\n", dashRequested);
+
+    debugText.text = debugStringBuilder.ToString();
+    }
+#endif
     
     #endregion Other functions
 }
