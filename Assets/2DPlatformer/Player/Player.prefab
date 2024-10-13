@@ -150,9 +150,11 @@ MonoBehaviour:
     m_Bits: 64
   canWallSlide: 1
   wallSlideSpeed: 3
+  wallSlideStickStrength: 0.3
   canDash: 1
-  dashForce: 5
+  dashForce: 20
   maxDashes: 1
+  holdDashRequestTime: 0.1
   canFastFall: 1
   fastFallAcceleration: 0.1
   jumpForce: 4

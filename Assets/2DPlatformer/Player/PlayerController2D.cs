@@ -26,12 +26,13 @@ public class PlayerController2D : MonoBehaviour
     private float invincibilityTimer;
     private float horizontalInput;
     private float verticalInput;
+    private bool isFacingRight = true;
 
     [Foldout("Movement Settings")]
     [SerializeField] private float moveSpeed = 4f;
     [SerializeField] private float airMoveSpeed = 3f;
     [SerializeField] [Range(0.1f, 2f)] private float moveAcceleration = 1f;
-    [SerializeField] [Range(0.05f, 0.5f)] private float moveDeceleration = 0.25f;
+    [SerializeField] [Range(0f, 2f)] private float moveDeceleration = 0.25f;
     [SerializeField] private bool canRun = true;
         [ShowIf("canRun")] 
         [SerializeField] private float runSpeed = 5f;
@@ -49,11 +50,13 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private bool canWallSlide = true;
         [ShowIf("canWallSlide")]
         [SerializeField] private float wallSlideSpeed = 3f;
+        [SerializeField] [Range(0, 1f)] private float wallSlideStickStrength = 0.3f;
         private bool isTouchingWall;
+        private bool isWallSliding;
         [EndIf]
     [SerializeField] private bool canDash = true;
         [ShowIf("canDash")]
-        [SerializeField] private float dashForce = 5f;
+        [SerializeField] private float dashForce = 20f;
         [SerializeField] private int maxDashes = 1;
         [SerializeField] [Range(0.1f, 1f)] private float holdDashRequestTime = 0.1f; // For how long the dash buffer will hold
         private int remainingDashes;
@@ -135,6 +138,7 @@ public class PlayerController2D : MonoBehaviour
 
         CheckForInput();
         CountTimers();
+        CheckFaceDirection();
         ControlSprite();
     }
 
@@ -143,13 +147,17 @@ public class PlayerController2D : MonoBehaviour
         CollisionChecks();
         HandleGravity();
         HandleMovement();
-        HandleDash();
+        HandleJump();
+        HandleWallSlide();
+        HandleDashing();
         HandleStepClimbing();
         HandleFastFall();
-        HandleJump();
         
 
-        if (showDebugText && debugText) { debugText.enabled = showDebugText; UpdateDebugText(); } else { debugText.enabled = false; }
+        if (debugText) {
+            debugText.enabled = showDebugText;
+            if (showDebugText) { UpdateDebugText(); }
+        }
     }
 
 
@@ -161,48 +169,57 @@ public class PlayerController2D : MonoBehaviour
         float movementSpeed = horizontalInput;
         float movementAcceleration = moveAcceleration;
 
-        if (isGrounded) { // On Ground
+        if (isWallSliding) { // Wall sliding
+
+            if (horizontalInput < wallSlideStickStrength && horizontalInput > -wallSlideStickStrength) { 
+
+                movementSpeed = 0; 
+                movementAcceleration = 0;
+            }
             
-            if (canRun && runInput) { // Run
+        } else {
+            if (isGrounded) { // On Ground
+                
+                if (canRun && runInput) { // Run
 
-                movementSpeed *= runSpeed;
-                movementAcceleration *= 1.5f;
-                wasRunning = true;
-                if (runEffect && runEffect.isStopped) {runEffect.Play();}
+                    movementSpeed *= runSpeed;
+                    movementAcceleration *= 1.5f;
+                    wasRunning = true;
+                    if (runEffect && runEffect.isStopped) {runEffect.Play();}
 
-            } else { // Walk
+                } else { // Walk
 
-                movementSpeed *= moveSpeed;
-                wasRunning = false;
-                if (runEffect && runEffect.isPlaying) {runEffect.Stop();}
-            }
+                    movementSpeed *= moveSpeed;
+                    wasRunning = false;
+                    if (runEffect && runEffect.isPlaying) {runEffect.Stop();}
+                }
 
-        } else { // In air
+            } else if (!isGrounded) { // In air
 
-            if (canRun && wasRunning) { // Run
+                if (canRun && wasRunning) { // Run
 
-                movementSpeed *= airRunSpeed;
-                movementAcceleration /= 1.5f;
-                if (runEffect && runEffect.isPlaying) {runEffect.Stop();}
+                    movementSpeed *= airRunSpeed;
+                    movementAcceleration /= 1.5f;
 
-            } else { // Walk
+                } else { // Walk
 
-                movementSpeed *= airMoveSpeed;
-                movementAcceleration /= 1.5f;
-                wasRunning = false;
-                if (runEffect && runEffect.isPlaying) {runEffect.Stop();}
-            }
+                    movementSpeed *= airMoveSpeed;
+                    movementAcceleration /= 1.5f;
+                    wasRunning = false;
+                    if (runEffect && runEffect.isPlaying) {runEffect.Stop();}
+                }
+            } 
         }
-        
+
+
+
         if (horizontalInput == 0) { // If the player is not moving use decelerate value
 
             movementAcceleration = moveDeceleration;
         }
 
         // Lerp the player movement
-        float newVelocityX  = Mathf.Lerp(rigidBody.velocity.x, movementSpeed, movementAcceleration);
-        rigidBody.velocity = new Vector2(newVelocityX , rigidBody.velocity.y);
-
+        rigidBody.velocity = new Vector2 ( Mathf.Lerp(rigidBody.velocity.x, movementSpeed, movementAcceleration), rigidBody.velocity.y);
 
     }
 
@@ -215,23 +232,26 @@ public class PlayerController2D : MonoBehaviour
 
             rigidBody.velocity = new Vector2(rigidBody.velocity.x, rigidBody.velocity.y - fastFallAcceleration);
         }
-
     }
 
-    private void HandleDash() {
+    private void HandleDashing() {
 
-        if (!canDash) return;
+
+        if (!canDash) return; // Return if not allowed to dash
+        if (isGrounded) { remainingDashes = maxDashes; } // Reset dashes when on ground
+
         if (dashRequested && remainingDashes > 0) {
 
+            int dashDirection = isFacingRight ? 1 : -1;
+            rigidBody.velocity = new Vector2(dashForce * dashDirection, rigidBody.velocity.y);
             dashRequested = false;
-            rigidBody.velocity = new Vector2(dashForce, rigidBody.velocity.y);
             if (!isGrounded) { remainingDashes -= 1;}
 
             if (dashEffect) {dashEffect.Play();}
             if (dashSfx) {dashSfx.Play();}
         }
 
-        if (isGrounded) { remainingDashes = maxDashes; } // Reset dashes when on ground
+        
     }
 
 
@@ -295,7 +315,20 @@ public class PlayerController2D : MonoBehaviour
         
     }
 
+    private void HandleWallSlide() {
 
+        if (canWallSlide && isTouchingWall && !isGrounded) {
+            isWallSliding = true;
+        } else {
+            isWallSliding = false;
+        }
+    }
+
+    #endregion Movement functions
+
+
+    //------------------------------------
+    #region Gravity function
     private void HandleGravity()
     {
         if (!isGrounded) // Apply gravity when not grounded
@@ -306,7 +339,7 @@ public class PlayerController2D : MonoBehaviour
 
 
             // Cap fall speed
-            if (canWallSlide && isTouchingWall) { // When wall sliding
+            if (isWallSliding) { // When wall sliding
 
                 if (rigidBody.velocity.y < -wallSlideSpeed) {
 
@@ -342,7 +375,7 @@ public class PlayerController2D : MonoBehaviour
     }
 
 
-    #endregion Movement/Gravity functions
+    #endregion Gravity functions
 
 
     //------------------------------------
@@ -499,9 +532,9 @@ public class PlayerController2D : MonoBehaviour
 
     private void ControlSprite() {
 
-        if (horizontalInput > 0) {
+        if (isFacingRight) {
             spriteRenderer.flipX = false;
-        } else if (horizontalInput < 0) {
+        } else {
             spriteRenderer.flipX = true;
         }
 
@@ -509,6 +542,15 @@ public class PlayerController2D : MonoBehaviour
             spriteRenderer.color = new Color(1f, 1f, 1f, 0.5f);
         } else {
             spriteRenderer.color = new Color(1f, 1f, 1f, 1f);
+        }
+    }
+
+    private void CheckFaceDirection() {
+
+        if (horizontalInput > 0) {
+            isFacingRight = true;
+        } else if (horizontalInput < 0) {
+            isFacingRight = false;
         }
     }
     
@@ -536,7 +578,10 @@ public class PlayerController2D : MonoBehaviour
             }
         }
     }
+    #endregion Other functions
 
+    
+    #region Debugging functions
 private StringBuilder debugStringBuilder = new StringBuilder(256);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
     private void UpdateDebugText() {
@@ -551,22 +596,23 @@ private StringBuilder debugStringBuilder = new StringBuilder(256);
     debugStringBuilder.AppendFormat("Velocity: {0}\n", rigidBody.velocity);
 
     debugStringBuilder.AppendFormat("\nStates:\n");
+    debugStringBuilder.AppendFormat("Facing Right: {0}\n", isFacingRight);
     debugStringBuilder.AppendFormat("Invincible: {0}\n", isInvincible);
     debugStringBuilder.AppendFormat("Grounded: {0}\n", isGrounded);
     debugStringBuilder.AppendFormat("Running: {0}\n", wasRunning);
-    bool isWallSliding = canWallSlide && isTouchingWall && !isGrounded;
     debugStringBuilder.AppendFormat("Wall Sliding: {0}\n", isWallSliding);
     debugStringBuilder.AppendFormat("At Max Fall Speed: {0}\n", atMaxFallSpeed);
 
     debugStringBuilder.AppendFormat("\nInputs:\n");
-    debugStringBuilder.AppendFormat("H/V: {0} / {1}\n", horizontalInput,verticalInput);
+    debugStringBuilder.AppendFormat($"H/V: {horizontalInput:F2} / {verticalInput:F2}\n");
     debugStringBuilder.AppendFormat("Run: {0}\n", runInput);
-    debugStringBuilder.AppendFormat("Jump: {0}\n", jumpRequested);
-    debugStringBuilder.AppendFormat("Dash: {0}\n", dashRequested);
+    debugStringBuilder.AppendFormat("Jump: {0}\n", Input.GetButtonDown("Jump"));
+    debugStringBuilder.AppendFormat("Dash: {0}\n", Input.GetButtonDown("Dash"));
 
     debugText.text = debugStringBuilder.ToString();
     }
 #endif
     
-    #endregion Other functions
+    #endregion Debugging functions
+    
 }
