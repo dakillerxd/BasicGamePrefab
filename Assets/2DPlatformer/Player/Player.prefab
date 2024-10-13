@@ -131,20 +131,21 @@ MonoBehaviour:
   invincibilityTime: 0.3
   moveSpeed: 4
   airMoveSpeed: 3
-  canRun: 1
-  runSpeed: 5
-  airRunSpeed: 6
-  stepHeight: 0.12
-  stepWidth: 0.1
-  stepCheckDistance: 0.05
-  canWallSlide: 1
-  wallSlideSpeed: 3
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
+  canRun: 1
+  runSpeed: 5
+  airRunSpeed: 6
+  autoClimbSteps: 1
+  stepHeight: 0.12
+  stepWidth: 0.1
+  stepCheckDistance: 0.05
   stepLayer:
     serializedVersion: 2
     m_Bits: 64
+  canWallSlide: 1
+  wallSlideSpeed: 3
   jumpForce: 4
   maxAirJumps: 1
   holdJumpRequestTime: 0.2

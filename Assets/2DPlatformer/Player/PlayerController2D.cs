@@ -9,33 +9,44 @@ using UnityEngine.UI;
 public class PlayerController2D : MonoBehaviour
 {
     [Tab("Player Settings")]
+    [Header("Settings")]
     [SerializeField] private int maxHealth = 2;
     [SerializeField] [Range(0, 1f)] private float invincibilityTime = 1f;
-
-    [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 4f;
     [SerializeField] private float airMoveSpeed = 3f;
-    [SerializeField] private bool canRun = true;
-    [SerializeField] private float runSpeed = 5f;
-    [SerializeField] private float airRunSpeed = 6f;
-    [SerializeField] [Range(0, 1f)] private float stepHeight = 0.12f;
-    [SerializeField] [Range(0, 1f)] private float stepWidth = 0.2f;
-    [SerializeField] [Range(0, 1f)] private float stepCheckDistance = 0.04f;
-    [SerializeField] private bool canWallSlide = true;
-    [SerializeField] private float wallSlideSpeed = 3f;
     [SerializeField] private LayerMask groundLayer;
-    [SerializeField] private LayerMask stepLayer;
 
-    [Header("Jump Settings")]
+    [Foldout("Movement Settings")]
+    [SerializeField] private bool canRun = true;
+        [ShowIf("canRun")] 
+        [SerializeField] private float runSpeed = 5f;
+        [SerializeField] private float airRunSpeed = 6f; 
+        [EndIf]
+    [SerializeField] private bool autoClimbSteps = true;
+        [ShowIf("autoClimbSteps")]
+        [SerializeField] [Range(0, 1f)] private float stepHeight = 0.12f;
+        [SerializeField] [Range(0, 1f)] private float stepWidth = 0.2f;
+        [SerializeField] [Range(0, 1f)] private float stepCheckDistance = 0.04f;
+        [SerializeField] private LayerMask stepLayer;
+        [EndIf]
+    [SerializeField] private bool canWallSlide = true;
+        [ShowIf("canWallSlide")]
+        [SerializeField] private float wallSlideSpeed = 3f;
+        [EndIf]
+    [EndFoldout]
+
+    [Foldout("Jump Settings")]
     [SerializeField] private float jumpForce = 4f;
     [SerializeField] [Range(0, 5f)] private int maxAirJumps = 1;
     [SerializeField] [Range(0.1f, 1f)] private float holdJumpRequestTime = 0.2f; // For how long the jump buffer will hold
+    [EndFoldout]
 
-    [Header("Gravity Settings")]
+    [Foldout("Gravity Settings")]
     [SerializeField] private float gravityForce = 9.8f;
     [SerializeField] [Range(0f, 3f)] private float fallMultiplier = 2.5f; // Gravity multiplayer when the payer is not jumping
     [SerializeField] private float maxFallSpeed = 15f;
     [SerializeField] private bool canTakeFallDamage = true;
+    [EndFoldout]
 
 
     [Header("Debug")]
@@ -55,6 +66,7 @@ public class PlayerController2D : MonoBehaviour
     [ReadOnly] [SerializeField] private bool isInvincible;
     [ReadOnly] [SerializeField] private float invincibilityTimer;
     [ReadOnly] [SerializeField] private bool isFreeFalling;
+    [EndTab]
 
     [Tab("References")]
     [SerializeField] private Rigidbody2D rigidBody;
@@ -73,6 +85,7 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private AudioSource jumpSfx;
     [SerializeField] private AudioSource spawnSfx;
     [SerializeField] private AudioSource deathSfx;
+    [EndTab]
 
 
 
@@ -155,7 +168,7 @@ public class PlayerController2D : MonoBehaviour
 
     private void HandleStepClimbing()
     {
-        if (!isGrounded) return; // Only check for steps when grounded
+        if (autoClimbSteps && !isGrounded) return; // Only check for steps when grounded and can climb steps
 
         // Determine the direction based on horizontal input
         Vector2 moveDirection = new Vector2(horizontalInput, 0).normalized;
