@@ -6,10 +6,12 @@ using TMPro;
 using System;
 using UnityEngine.UI;
 using System.Text;
-using Unity.VisualScripting;
 
 public class PlayerController2D : MonoBehaviour
 {
+    public static PlayerController2D Instance { get; private set; }
+
+
     [Tab("Player Settings")]
     [Header("Settings")]
     [SerializeField] private int maxHealth = 2;
@@ -19,14 +21,14 @@ public class PlayerController2D : MonoBehaviour
         [SerializeField] private int maxFallDamage = 1;
         [EndIf]
     [SerializeField] private LayerMask groundLayer;
-    private bool isGrounded;
+    [HideInInspector] public bool isGrounded;
     private int currentHealth;
     private int deaths;
     private bool isInvincible;
     private float invincibilityTimer;
     private float horizontalInput;
     private float verticalInput;
-    private bool isFacingRight = true;
+    [HideInInspector] public bool isFacingRight = true;
 
     [Foldout("Movement Settings")]
     [SerializeField] private float moveSpeed = 4f;
@@ -81,20 +83,21 @@ public class PlayerController2D : MonoBehaviour
     [Foldout("Gravity Settings")]
     [SerializeField] private float gravityForce = 9.8f;
     [SerializeField] [Range(0f, 3f)] private float fallMultiplier = 2.5f; // Gravity multiplayer when the payer is not jumping
-    [SerializeField] private float maxFallSpeed = 15f;
-    private bool atMaxFallSpeed;
+    [SerializeField] public float maxFallSpeed = 15f;
+    [HideInInspector] public bool atMaxFallSpeed;
     [EndFoldout]
     
 
     [Header("Debug")]
     [SerializeField] private bool showDebugText = false;
+    [SerializeField] private bool showFpsText = false;
     [SerializeField] private Vector2 spawnPoint;
     [SerializeField] private Vector2 lastCheckpoint;
     [EndTab]
 
 
     [Tab("References")]
-    [SerializeField] private Rigidbody2D rigidBody;
+    [SerializeField] public Rigidbody2D rigidBody;
     [SerializeField] private SpriteRenderer spriteRenderer;
     [SerializeField] private Collider2D collBody;
     [SerializeField] private Collider2D collFeet;
@@ -114,14 +117,24 @@ public class PlayerController2D : MonoBehaviour
 
     [Header("Debug")]
     [SerializeField] private TextMeshProUGUI debugText;
+    [SerializeField] private TextMeshProUGUI fpsText;
     [EndTab]
 
 
 
     private void Awake() {
 
-        // QualitySettings.vSyncCount = 0;
-        // Application.targetFrameRate = 60;
+       if (Instance != null && Instance != this) {
+
+            Destroy(gameObject);
+
+        } else {
+
+            Instance = this;
+        }
+
+        QualitySettings.vSyncCount = 0;
+        Application.targetFrameRate = 60;
     }
  
 
@@ -140,6 +153,9 @@ public class PlayerController2D : MonoBehaviour
         CountTimers();
         CheckFaceDirection();
         ControlSprite();
+
+        if (Input.GetKeyDown(KeyCode.R)) {Respawn(lastCheckpoint);}
+        if (Input.GetKeyDown(KeyCode.F)) { CameraController2D.Instance.ShakeCamera(4,0.5f);}
     }
 
     private void FixedUpdate() {
@@ -158,7 +174,13 @@ public class PlayerController2D : MonoBehaviour
             debugText.enabled = showDebugText;
             if (showDebugText) { UpdateDebugText(); }
         }
+
+        if (fpsText) {
+            fpsText.enabled = showFpsText;
+            if (showFpsText) { UpdateFpsText(); }
+        }
     }
+
 
 
 
@@ -351,8 +373,13 @@ public class PlayerController2D : MonoBehaviour
             {
                 if (rigidBody.velocity.y < -maxFallSpeed) {
 
+                    
                     atMaxFallSpeed = true;
                     rigidBody.velocity = new Vector2(rigidBody.velocity.x, -maxFallSpeed);
+
+                    if (CameraController2D.Instance && !CameraController2D.Instance.isShaking) {
+                        CameraController2D.Instance.ShakeCamera( 1f, 0.4f);
+                    }
 
                 } else {
 
@@ -364,10 +391,16 @@ public class PlayerController2D : MonoBehaviour
 
             rigidBody.velocity += 0.1f * Time.fixedDeltaTime * Vector2.down;
 
-            // Check for fall damage when landing
-            if (canTakeFallDamage && atMaxFallSpeed) {
+            
+            // Check for landing
+            if (atMaxFallSpeed) {
 
-                DamageHealth(maxFallDamage, "Took fall damage", false);
+                if (canTakeFallDamage) { DamageHealth(maxFallDamage, "Took fall damage", false);} // Take damage at landing
+
+                if (CameraController2D.Instance && CameraController2D.Instance.isShaking) { // Stop camera shake
+                    CameraController2D.Instance.isShaking = false;
+                }
+
                 rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce/2);
                 atMaxFallSpeed = false;
             }
@@ -509,6 +542,9 @@ public class PlayerController2D : MonoBehaviour
         currentHealth = maxHealth;
         if (spawnEffect) {spawnEffect.Play();}
         if (spawnSfx) {spawnSfx.Play();}
+        if (CameraController2D.Instance && CameraController2D.Instance.isShaking) { // Stop camera shake
+            CameraController2D.Instance.isShaking = false;
+        }
         Debug.Log("Respawned, Deaths: " + deaths);
     }
 
@@ -586,31 +622,45 @@ private StringBuilder debugStringBuilder = new StringBuilder(256);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
     private void UpdateDebugText() {
 
-    debugStringBuilder.Clear();
-    
-    debugStringBuilder.AppendFormat("Stats:\n");
-    debugStringBuilder.AppendFormat("Health: {0} / {1}\n", currentHealth, maxHealth);
-    debugStringBuilder.AppendFormat("Deaths: {0}\n\n", deaths);
-    debugStringBuilder.AppendFormat("Air Jumps: {0} / {1}\n", remainingAirJumps, maxAirJumps);
-    debugStringBuilder.AppendFormat("Dashes: {0} / {1}\n", remainingDashes, maxDashes);
-    debugStringBuilder.AppendFormat("Velocity: {0}\n", rigidBody.velocity);
+        debugStringBuilder.Clear();
+        
+        debugStringBuilder.AppendFormat("Stats:\n");
+        debugStringBuilder.AppendFormat("Health: {0} / {1}\n", currentHealth, maxHealth);
+        debugStringBuilder.AppendFormat("Deaths: {0}\n\n", deaths);
+        debugStringBuilder.AppendFormat("Air Jumps: {0} / {1}\n", remainingAirJumps, maxAirJumps);
+        debugStringBuilder.AppendFormat("Dashes: {0} / {1}\n", remainingDashes, maxDashes);
+        debugStringBuilder.AppendFormat("Velocity: {0}\n", rigidBody.velocity);
 
-    debugStringBuilder.AppendFormat("\nStates:\n");
-    debugStringBuilder.AppendFormat("Facing Right: {0}\n", isFacingRight);
-    debugStringBuilder.AppendFormat("Invincible: {0}\n", isInvincible);
-    debugStringBuilder.AppendFormat("Grounded: {0}\n", isGrounded);
-    debugStringBuilder.AppendFormat("Running: {0}\n", wasRunning);
-    debugStringBuilder.AppendFormat("Wall Sliding: {0}\n", isWallSliding);
-    debugStringBuilder.AppendFormat("At Max Fall Speed: {0}\n", atMaxFallSpeed);
+        debugStringBuilder.AppendFormat("\nStates:\n");
+        debugStringBuilder.AppendFormat("Facing Right: {0}\n", isFacingRight);
+        debugStringBuilder.AppendFormat("Invincible: {0}\n", isInvincible);
+        debugStringBuilder.AppendFormat("Grounded: {0}\n", isGrounded);
+        debugStringBuilder.AppendFormat("Running: {0}\n", wasRunning);
+        debugStringBuilder.AppendFormat("Wall Sliding: {0}\n", isWallSliding);
+        debugStringBuilder.AppendFormat("At Max Fall Speed: {0}\n", atMaxFallSpeed);
 
-    debugStringBuilder.AppendFormat("\nInputs:\n");
-    debugStringBuilder.AppendFormat($"H/V: {horizontalInput:F2} / {verticalInput:F2}\n");
-    debugStringBuilder.AppendFormat("Run: {0}\n", runInput);
-    debugStringBuilder.AppendFormat("Jump: {0}\n", Input.GetButtonDown("Jump"));
-    debugStringBuilder.AppendFormat("Dash: {0}\n", Input.GetButtonDown("Dash"));
+        debugStringBuilder.AppendFormat("\nInputs:\n");
+        debugStringBuilder.AppendFormat($"H/V: {horizontalInput:F2} / {verticalInput:F2}\n");
+        debugStringBuilder.AppendFormat("Run: {0}\n", runInput);
+        debugStringBuilder.AppendFormat("Jump: {0}\n", Input.GetButtonDown("Jump"));
+        debugStringBuilder.AppendFormat("Dash: {0}\n", Input.GetButtonDown("Dash"));
 
-    debugText.text = debugStringBuilder.ToString();
+        debugText.text = debugStringBuilder.ToString();
     }
+
+private StringBuilder fpsStringBuilder = new StringBuilder(256);
+    private void UpdateFpsText() {
+
+        fpsStringBuilder.Clear();
+
+        fpsStringBuilder.AppendFormat("FPS: {0}\n", (int)(1f / Time.unscaledDeltaTime));
+        
+
+        fpsText.text = fpsStringBuilder.ToString();
+
+        
+    }
+
 #endif
     
     #endregion Debugging functions

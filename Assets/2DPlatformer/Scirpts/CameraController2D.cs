@@ -1,11 +1,28 @@
+using System.Collections;
 using UnityEngine;
 
 public class CameraController2D : MonoBehaviour
 {
-    [Header("Settings")]
+    public static CameraController2D Instance { get; private set; }
+
+    [Header("Target")]
     [SerializeField] private Transform target;
-    [SerializeField] private float smoothSpeed = 0.125f;
-    [SerializeField] private Vector3 offset;
+    [SerializeField] [Range(0f, 2f)] private float smoothFollowSpeed = 0.5f;
+    [SerializeField] [ReadOnly] private Vector3 targetPosition;
+
+    [Header("Shake Settings")]
+    [SerializeField] private float xShakeRange = 1;
+    [SerializeField] private float yShakeRange = 1;
+    [SerializeField] [ReadOnly] public bool isShaking;
+    private Vector3 shakeOffset;
+
+
+    [Header("Target Offset")]
+    [SerializeField] private bool verticalOffset = true;
+    [SerializeField] private bool horizontalOffset = true;
+    [SerializeField] [Range(0f, 2f)] private float verticalOffsetStrength = 0.5f;
+    [SerializeField] [Range(0f, 2f)] private float horizontalOffsetStrength = 0.5f;
+    [SerializeField] [ReadOnly] private Vector3 targetOffset;
 
     [Header("Camera Boundaries")]
     [SerializeField] private bool useBoundaries = true;
@@ -25,41 +42,82 @@ public class CameraController2D : MonoBehaviour
     private Vector3 currentVelocity;
     private float zoomVelocity;
 
+
+    private void Awake() {
+
+       if (Instance != null && Instance != this) {
+
+            Destroy(gameObject);
+
+        } else {
+            
+            Instance = this;
+        }
+    }
+
+
     private void Start()
     {
         cam = GetComponent<Camera>();
         cam.orthographicSize = targetZoom;
+        isShaking = false;
     }
 
     private void Update()
     {
         HandleZoomInput();
+        HandleTargetSelection();
     }
+
 
     private void LateUpdate()
     {
         FollowTarget();
         HandleZoom();
+        ApplyShake();
+    }
+
+
+    private void HandleTargetSelection()
+    {
+        if (Input.GetMouseButtonDown(0)) 
+        {
+            Vector2 mousePosition = cam.ScreenToWorldPoint(Input.mousePosition);
+            RaycastHit2D hit = Physics2D.Raycast(mousePosition, Vector2.zero); ;
+
+            if (hit)
+            {
+                if (hit.collider.CompareTag("Player"))
+                {
+                    SetTarget(hit.collider.transform.parent);
+                    Debug.Log("Set camera target to: " + hit.collider.transform.parent.name);
+                }
+                else
+                {
+                    Debug.Log("Clicked on: " + hit.collider.gameObject.name);
+                }
+            }
+        }
+    }
+
+    public void SetTarget(Transform newTarget)
+    {
+        target = newTarget;
     }
 
     private void FollowTarget()
     {
-        if (target == null) return;
+        if (!target) return;
 
-        Vector3 targetPosition = CalculateTargetPosition();
-        Vector3 smoothedPosition = Vector3.SmoothDamp(transform.position, targetPosition, ref currentVelocity, smoothSpeed, Mathf.Infinity, Time.fixedDeltaTime);
+        targetPosition = CalculateTargetPosition();
+        Vector3 smoothedPosition = Vector3.SmoothDamp(transform.position, targetPosition, ref currentVelocity, smoothFollowSpeed, Mathf.Infinity, Time.deltaTime);
 
-        if (useBoundaries)
-        {
-            smoothedPosition = ApplyBoundaries(smoothedPosition);
+        if (useBoundaries) {
+
+            smoothedPosition = HandleBoundaries(smoothedPosition);
         }
 
         transform.position = smoothedPosition;
-    }
-
-    private Vector3 CalculateTargetPosition()
-    {
-        return new Vector3(target.position.x, target.position.y, transform.position.z) + offset;
     }
 
     private void HandleZoomInput()
@@ -70,15 +128,19 @@ public class CameraController2D : MonoBehaviour
         targetZoom -= zoomInput * zoomSpeed;
         targetZoom = Mathf.Clamp(targetZoom, minZoom, maxZoom);
     }
-
     private void HandleZoom()
     {
         if (!allowZoom) return;
 
-        cam.orthographicSize = Mathf.SmoothDamp(cam.orthographicSize, targetZoom, ref zoomVelocity, smoothSpeed, Mathf.Infinity, Time.fixedDeltaTime);
+        cam.orthographicSize = Mathf.SmoothDamp(cam.orthographicSize, targetZoom, ref zoomVelocity, smoothFollowSpeed, Mathf.Infinity, Time.fixedDeltaTime);
     }
 
-    private Vector3 ApplyBoundaries(Vector3 position)
+
+    public void SetZoom(float zoom)
+    {
+        targetZoom = Mathf.Clamp(zoom, minZoom, maxZoom);
+    }
+    private Vector3 HandleBoundaries(Vector3 position)
     {
         float camHeight = cam.orthographicSize;
         float camWidth = camHeight * cam.aspect;
@@ -94,10 +156,6 @@ public class CameraController2D : MonoBehaviour
         return new Vector3(newX, newY, position.z);
     }
 
-    public void SetTarget(Transform newTarget)
-    {
-        target = newTarget;
-    }
 
     public void SetBoundaries(float minX, float maxX, float minY, float maxY)
     {
@@ -107,8 +165,90 @@ public class CameraController2D : MonoBehaviour
         this.maxY = maxY;
     }
 
-    public void SetZoom(float zoom)
+
+
+
+
+    public void ShakeCamera(float duration = 0.25f, float magnitude = 0.25f)
     {
-        targetZoom = Mathf.Clamp(zoom, minZoom, maxZoom);
+        if (!target) return;
+        StartCoroutine(Shake(duration, magnitude));
+        Debug.Log("Shaking camera for: " + duration + ", At: " + magnitude);
     }
+
+    private IEnumerator Shake(float duration, float magnitude)
+    {
+        isShaking = true;
+        float elapsed = 0f;
+
+        while (isShaking && elapsed < duration)
+        {
+            float x = Random.Range(-xShakeRange, xShakeRange) * magnitude;
+            float y = Random.Range(-yShakeRange, yShakeRange) * magnitude;
+
+            shakeOffset = new Vector3(x, y, 0);
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        shakeOffset = Vector3.zero;
+        isShaking = false;
+    }
+    private void ApplyShake()
+    {
+        if (isShaking)
+        {
+            Vector3 smoothedPosition = Vector3.SmoothDamp(transform.position, targetPosition, ref currentVelocity, smoothFollowSpeed, Mathf.Infinity, Time.deltaTime);
+
+            if (useBoundaries)
+            {
+                smoothedPosition = HandleBoundaries(smoothedPosition);
+            }
+
+            transform.position = smoothedPosition;
+        }
+    }
+    private Vector3 CalculateTargetOffset()
+    {
+        Vector3 offset = Vector3.zero;
+
+        if (target.gameObject.tag == "Player")
+        {
+            PlayerController2D player = target.GetComponent<PlayerController2D>();
+            if (horizontalOffset) {
+                if (player.isFacingRight) {
+                    offset.x = horizontalOffsetStrength;
+                } else {
+                    offset.x = -horizontalOffsetStrength;
+                }
+            }
+
+            if (verticalOffset) {
+                if (player.isGrounded) {
+                    offset.y = 1f;
+                } else if (!player.isGrounded && player.rigidBody.velocity.y > 0) { // Player is jumping
+                    offset.y = verticalOffsetStrength;
+                    
+                } else if (!player.isGrounded && !player.atMaxFallSpeed && player.rigidBody.velocity.y < -player.maxFallSpeed/3) { // Player is falling
+                    offset.y = -verticalOffsetStrength*4;
+
+                } else if (!player.isGrounded && player.atMaxFallSpeed) { // Player is falling fast
+                    offset.y = -verticalOffsetStrength*6;
+                }
+            }
+        }
+
+        targetOffset = offset;
+        return offset;
+    }
+
+    private Vector3 CalculateTargetPosition()
+    {
+        CalculateTargetOffset();
+        Vector3 basePosition = new Vector3(target.position.x, target.position.y, transform.position.z) + targetOffset;
+        return basePosition + shakeOffset;
+    }
+
+
 }
