@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class CameraController2D : MonoBehaviour
@@ -153,6 +154,13 @@ public class CameraController2D : MonoBehaviour
         float newX = Mathf.Clamp(position.x, minXBoundary, maxXBoundary);
         float newY = Mathf.Clamp(position.y, minYBoundary, maxYBoundary);
 
+        //Draw the box boundaries 
+        Debug.DrawLine(new Vector3(minX, minY, 0), new Vector3(minX, maxY, 0), Color.blue); // Left line
+        Debug.DrawLine(new Vector3(maxX, minY, 0), new Vector3(maxX, maxY, 0), Color.blue); // Right line
+        Debug.DrawLine(new Vector3(minX, minY, 0), new Vector3(maxX, minY, 0), Color.blue); // Bottom line
+        Debug.DrawLine(new Vector3(minX, maxY, 0), new Vector3(maxX, maxY, 0), Color.blue); // Top line
+
+
         return new Vector3(newX, newY, position.z);
     }
 
@@ -217,10 +225,13 @@ public class CameraController2D : MonoBehaviour
         {
             PlayerController2D player = target.GetComponent<PlayerController2D>();
             if (horizontalOffset) {
-                if (player.isFacingRight) {
-                    offset.x = horizontalOffsetStrength;
-                } else {
-                    offset.x = -horizontalOffsetStrength;
+                if (player.rigidBody.velocity.x != 0 ) {
+
+                    if (player.isFacingRight) {
+                        offset.x = horizontalOffsetStrength + (player.rigidBody.velocity.x/1.5f);
+                    } else {
+                        offset.x = -horizontalOffsetStrength + (player.rigidBody.velocity.x/1.5f);
+                    }
                 }
             }
 
@@ -230,11 +241,8 @@ public class CameraController2D : MonoBehaviour
                 } else if (!player.isGrounded && player.rigidBody.velocity.y > 0) { // Player is jumping
                     offset.y = verticalOffsetStrength;
                     
-                } else if (!player.isGrounded && !player.atMaxFallSpeed && player.rigidBody.velocity.y < -player.maxFallSpeed/3) { // Player is falling
-                    offset.y = -verticalOffsetStrength*4;
-
-                } else if (!player.isGrounded && player.atMaxFallSpeed) { // Player is falling fast
-                    offset.y = -verticalOffsetStrength*6;
+                } else if (!player.isGrounded && player.rigidBody.velocity.y < -2) { // Player is falling
+                    offset.y = -verticalOffsetStrength + Mathf.Clamp(player.rigidBody.velocity.y,-6,0);
                 }
             }
         }

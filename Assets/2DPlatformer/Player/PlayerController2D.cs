@@ -26,8 +26,8 @@ public class PlayerController2D : MonoBehaviour
     private int deaths;
     private bool isInvincible;
     private float invincibilityTimer;
-    private float horizontalInput;
-    private float verticalInput;
+    [HideInInspector] public  float horizontalInput;
+    [HideInInspector] public  float verticalInput;
     [HideInInspector] public bool isFacingRight = true;
 
     [Foldout("Movement Settings")]
@@ -83,7 +83,7 @@ public class PlayerController2D : MonoBehaviour
     [Foldout("Gravity Settings")]
     [SerializeField] private float gravityForce = 9.8f;
     [SerializeField] [Range(0f, 3f)] private float fallMultiplier = 2.5f; // Gravity multiplayer when the payer is not jumping
-    [SerializeField] public float maxFallSpeed = 15f;
+    [SerializeField] public float maxFallSpeed = 20f;
     [HideInInspector] public bool atMaxFallSpeed;
     [EndFoldout]
     
@@ -344,6 +344,13 @@ public class PlayerController2D : MonoBehaviour
         } else {
             isWallSliding = false;
         }
+
+        if (isWallSliding && rigidBody.velocity.y < -wallSlideSpeed) { // Cap fall speed when wall sliding
+
+            rigidBody.velocity = new Vector2(rigidBody.velocity.x, -wallSlideSpeed);
+            // rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, Mathf.Lerp(rigidBody.velocity.y, -wallSlideSpeed, 0.05f));
+            atMaxFallSpeed = false;
+        }   
     }
 
     #endregion Movement functions
@@ -359,27 +366,14 @@ public class PlayerController2D : MonoBehaviour
             float gravityMultiplier = rigidBody.velocity.y > 0 ? 1f : fallMultiplier;
             rigidBody.velocity += gravityForce * gravityMultiplier * Time.fixedDeltaTime * Vector2.down;
 
-
             // Cap fall speed
-            if (isWallSliding) { // When wall sliding
+            if (!isWallSliding) { 
 
-                if (rigidBody.velocity.y < -wallSlideSpeed) {
-
-                    rigidBody.velocity = new Vector2(rigidBody.velocity.x, -wallSlideSpeed);
-                    atMaxFallSpeed = false;
-                }
-            }
-            else // When at max fall speed
-            {
                 if (rigidBody.velocity.y < -maxFallSpeed) {
 
-                    
                     atMaxFallSpeed = true;
                     rigidBody.velocity = new Vector2(rigidBody.velocity.x, -maxFallSpeed);
-
-                    if (CameraController2D.Instance && !CameraController2D.Instance.isShaking) {
-                        CameraController2D.Instance.ShakeCamera( 1f, 0.4f);
-                    }
+                    if (CameraController2D.Instance && !CameraController2D.Instance.isShaking) { CameraController2D.Instance.ShakeCamera( 1f, 2f); } // shake camera when at max fall speed
 
                 } else {
 
@@ -401,7 +395,7 @@ public class PlayerController2D : MonoBehaviour
                     CameraController2D.Instance.isShaking = false;
                 }
 
-                rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce/2);
+                rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce/2); // Make the player bop
                 atMaxFallSpeed = false;
             }
         }
@@ -618,8 +612,9 @@ public class PlayerController2D : MonoBehaviour
 
     
     #region Debugging functions
-private StringBuilder debugStringBuilder = new StringBuilder(256);
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
+    private StringBuilder debugStringBuilder = new StringBuilder(256);
     private void UpdateDebugText() {
 
         debugStringBuilder.Clear();
@@ -648,7 +643,7 @@ private StringBuilder debugStringBuilder = new StringBuilder(256);
         debugText.text = debugStringBuilder.ToString();
     }
 
-private StringBuilder fpsStringBuilder = new StringBuilder(256);
+    private StringBuilder fpsStringBuilder = new StringBuilder(256);
     private void UpdateFpsText() {
 
         fpsStringBuilder.Clear();
