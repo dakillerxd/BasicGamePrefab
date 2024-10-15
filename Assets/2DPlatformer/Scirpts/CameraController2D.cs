@@ -242,7 +242,14 @@ public class CameraController2D : MonoBehaviour
                     offset.y = verticalOffsetStrength;
                     
                 } else if (!player.isGrounded && player.rigidBody.velocity.y < -2) { // Player is falling
+                    offset.y = -verticalOffsetStrength + Mathf.Clamp(player.rigidBody.velocity.y,-4,0);
+
+                } else if (!player.isGrounded && player.rigidBody.velocity.y < -6) { // Player is falling faster
+                    offset.y = -verticalOffsetStrength + Mathf.Clamp(player.rigidBody.velocity.y,-5,0);
+                    
+                } else if (!player.isGrounded && player.rigidBody.velocity.y <= -player.maxFallSpeed) { // Player is falling at max speed
                     offset.y = -verticalOffsetStrength + Mathf.Clamp(player.rigidBody.velocity.y,-6,0);
+                    
                 }
             }
         }

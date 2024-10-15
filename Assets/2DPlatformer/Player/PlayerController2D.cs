@@ -63,6 +63,7 @@ public class PlayerController2D : MonoBehaviour
         [SerializeField] [Range(0.1f, 1f)] private float holdDashRequestTime = 0.1f; // For how long the dash buffer will hold
         private int remainingDashes;
         private bool dashRequested;
+        private bool isDashing;
         private float dashBufferTimer = 0;
         [EndIf]
     [SerializeField] private bool canFastFall = true;
@@ -134,13 +135,14 @@ public class PlayerController2D : MonoBehaviour
         }
 
         QualitySettings.vSyncCount = 0;
-        Application.targetFrameRate = 60;
+        Application.targetFrameRate = 120;
     }
  
 
     private void Start() {
 
         currentHealth = maxHealth;
+        remainingDashes = maxDashes;
         deaths = 0;
         SetSpawnPoint(transform.position);
 
@@ -156,6 +158,16 @@ public class PlayerController2D : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.R)) {Respawn(lastCheckpoint);}
         if (Input.GetKeyDown(KeyCode.F)) { CameraController2D.Instance.ShakeCamera(4,0.5f);}
+
+        if (debugText) {
+            debugText.enabled = showDebugText;
+            if (showDebugText) { UpdateDebugText(); }
+        }
+
+        if (fpsText) {
+            fpsText.enabled = showFpsText;
+            if (showFpsText) { UpdateFpsText(); }
+        }
     }
 
     private void FixedUpdate() {
@@ -169,16 +181,6 @@ public class PlayerController2D : MonoBehaviour
         HandleStepClimbing();
         HandleFastFall();
         
-
-        if (debugText) {
-            debugText.enabled = showDebugText;
-            if (showDebugText) { UpdateDebugText(); }
-        }
-
-        if (fpsText) {
-            fpsText.enabled = showFpsText;
-            if (showFpsText) { UpdateFpsText(); }
-        }
     }
 
 
@@ -264,6 +266,8 @@ public class PlayerController2D : MonoBehaviour
 
         if (dashRequested && remainingDashes > 0) {
 
+            isDashing = true;
+
             int dashDirection = isFacingRight ? 1 : -1;
             rigidBody.velocity = new Vector2(dashForce * dashDirection, rigidBody.velocity.y);
             dashRequested = false;
@@ -271,6 +275,8 @@ public class PlayerController2D : MonoBehaviour
 
             if (dashEffect) {dashEffect.Play();}
             if (dashSfx) {dashSfx.Play();}
+
+            isDashing = false;
         }
 
         
@@ -282,26 +288,29 @@ public class PlayerController2D : MonoBehaviour
         if (!autoClimbSteps) return; // Only check for steps can climb steps
         if (!isGrounded) return; // Only check for steps when grounded
 
-        // Determine the direction based on horizontal input
-        Vector2 moveDirection = new Vector2(horizontalInput, 0).normalized;
-        if (moveDirection == Vector2.zero) return; // Not moving horizontally
+        Vector2 moveDirection = new Vector2(rigidBody.velocity.x, 0).normalized;
+        if (moveDirection != Vector2.zero ) { // Moving horizontally
 
-        // Check for step in front of the player
-        RaycastHit2D hitLower = Physics2D.Raycast(collFeet.bounds.center, moveDirection, collFeet.bounds.extents.x + stepCheckDistance, stepLayer);
+            // Check for step in front of the player
+            RaycastHit2D hitLower = Physics2D.Raycast(collFeet.bounds.center, moveDirection, collFeet.bounds.extents.x + stepCheckDistance, stepLayer);
 
-        // Draw the raycast for debugging
-        Debug.DrawRay(collFeet.bounds.center, moveDirection * (collFeet.bounds.extents.x + stepCheckDistance), Color.red);
+            // Draw the raycast for debugging
+            Debug.DrawRay(collFeet.bounds.center, moveDirection * (collFeet.bounds.extents.x + stepCheckDistance), Color.red);
 
-        if (hitLower.collider != null) {
+            if (hitLower.collider != null) {
 
-            // Check if there's space above the step
-            RaycastHit2D hitUpper = Physics2D.Raycast(collFeet.bounds.center + new Vector3(0, stepHeight, 0), moveDirection, collFeet.bounds.extents.x + stepCheckDistance, stepLayer) ;
+                // Check if there's space above the step
+                RaycastHit2D hitUpper = Physics2D.Raycast(collFeet.bounds.center + new Vector3(0, stepHeight, 0), moveDirection, collFeet.bounds.extents.x + stepCheckDistance, stepLayer) ;
 
-            if (hitUpper.collider == null) {
-                // Move the player up
-                rigidBody.position += new Vector2(horizontalInput * stepWidth, stepHeight);
+                if (hitUpper.collider == null) {
+                    // Move the player up
+                    rigidBody.position += new Vector2(horizontalInput * stepWidth, stepHeight);
+                }
             }
-        }
+
+        } 
+
+
     }
 
     private void HandleJump() {
@@ -386,16 +395,17 @@ public class PlayerController2D : MonoBehaviour
             rigidBody.velocity += 0.1f * Time.fixedDeltaTime * Vector2.down;
 
             
-            // Check for landing
+            // Check for landing at max speed
             if (atMaxFallSpeed) {
 
-                if (canTakeFallDamage) { DamageHealth(maxFallDamage, "Took fall damage", false);} // Take damage at landing
+                if (canTakeFallDamage) { DamageHealth(maxFallDamage, "Took fall damage", false);} // Take damage 
 
                 if (CameraController2D.Instance && CameraController2D.Instance.isShaking) { // Stop camera shake
                     CameraController2D.Instance.isShaking = false;
                 }
 
                 rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce/2); // Make the player bop
+
                 atMaxFallSpeed = false;
             }
         }
@@ -424,14 +434,15 @@ public class PlayerController2D : MonoBehaviour
             case "Enemy":
 
                 DamageHealth( 1, "Damaged by: " + collision.gameObject.name);
-                break;
+
+            break;
 
             case "Spike":
 
                 DamageHealth( 1, "Damaged by: " + collision.gameObject.name);
                 if (currentHealth > 0) { rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce); }
                 
-                break;
+            break;
         }
     }
 
@@ -520,6 +531,7 @@ public class PlayerController2D : MonoBehaviour
         if (canDash && Input.GetButtonDown("Dash")) {
 
             dashRequested = true;
+            isDashing = true;
             dashBufferTimer = 0f;
         }
 
@@ -528,17 +540,23 @@ public class PlayerController2D : MonoBehaviour
 
     private void Respawn(Vector2 position) {
 
+        // Reset stats/states
         isInvincible = true;
         invincibilityTimer = 0f;
         deaths += 1;
         transform.position = position;
         rigidBody.velocity = new Vector2(0, 0);
         currentHealth = maxHealth;
+        remainingDashes = maxDashes;
+        remainingAirJumps = maxAirJumps;
+
+        // Play effects
         if (spawnEffect) {spawnEffect.Play();}
         if (spawnSfx) {spawnSfx.Play();}
         if (CameraController2D.Instance && CameraController2D.Instance.isShaking) { // Stop camera shake
             CameraController2D.Instance.isShaking = false;
         }
+
         Debug.Log("Respawned, Deaths: " + deaths);
     }
 
@@ -631,6 +649,7 @@ public class PlayerController2D : MonoBehaviour
         debugStringBuilder.AppendFormat("Invincible: {0}\n", isInvincible);
         debugStringBuilder.AppendFormat("Grounded: {0}\n", isGrounded);
         debugStringBuilder.AppendFormat("Running: {0}\n", wasRunning);
+        debugStringBuilder.AppendFormat("Dashing: {0}\n", isDashing);
         debugStringBuilder.AppendFormat("Wall Sliding: {0}\n", isWallSliding);
         debugStringBuilder.AppendFormat("At Max Fall Speed: {0}\n", atMaxFallSpeed);
 
@@ -648,7 +667,13 @@ public class PlayerController2D : MonoBehaviour
 
         fpsStringBuilder.Clear();
 
-        fpsStringBuilder.AppendFormat("FPS: {0}\n", (int)(1f / Time.unscaledDeltaTime));
+        float deltaTime = 0.0f;
+        deltaTime += Time.unscaledDeltaTime - deltaTime;
+        float fps = 1.0f / deltaTime;
+        fpsText.text = string.Format("{0:0.} FPS", fps);
+
+        fpsStringBuilder.AppendFormat("{0}\n", (int)fps);
+        // fpsStringBuilder.AppendFormat("FPS: {0}\n", (int)fps);
         
 
         fpsText.text = fpsStringBuilder.ToString();
