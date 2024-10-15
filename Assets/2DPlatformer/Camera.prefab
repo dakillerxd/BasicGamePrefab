@@ -153,8 +153,6 @@ MonoBehaviour:
   target: {fileID: 0}
   smoothFollowSpeed: 0.5
   targetPosition: {x: 0, y: 0, z: 0}
-  xShakeRange: 1
-  yShakeRange: 1
   isShaking: 0
   verticalOffset: 1
   horizontalOffset: 1

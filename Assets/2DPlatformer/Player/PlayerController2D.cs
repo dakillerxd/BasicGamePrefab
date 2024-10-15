@@ -51,10 +51,10 @@ public class PlayerController2D : MonoBehaviour
         [EndIf]
     [SerializeField] private bool canWallSlide = true;
         [ShowIf("canWallSlide")]
-        [SerializeField] private float wallSlideSpeed = 3f;
+        [SerializeField] private float maxWallSlideSpeed = 3f;
         [SerializeField] [Range(0, 1f)] private float wallSlideStickStrength = 0.3f;
         private bool isTouchingWall;
-        private bool isWallSliding;
+        [HideInInspector] public bool isWallSliding;
         [EndIf]
     [SerializeField] private bool canDash = true;
         [ShowIf("canDash")]
@@ -66,9 +66,10 @@ public class PlayerController2D : MonoBehaviour
         private bool isDashing;
         private float dashBufferTimer = 0;
         [EndIf]
-    [SerializeField] private bool canFastFall = true;
-        [ShowIf("canFastFall")]
+    [SerializeField] private bool canFastDrop = true;
+        [ShowIf("canFastDrop")]
         [SerializeField] [Range(0, 1f)] private float fastFallAcceleration = 0.1f;
+        private bool isFastDropping;
         [EndIf]
     [EndFoldout]
 
@@ -83,8 +84,9 @@ public class PlayerController2D : MonoBehaviour
 
     [Foldout("Gravity Settings")]
     [SerializeField] private float gravityForce = 9.8f;
-    [SerializeField] [Range(0f, 3f)] private float fallMultiplier = 2.5f; // Gravity multiplayer when the payer is not jumping
+    [SerializeField] [Range(0f, 10f)] private float fallMultiplier = 2.5f; // Gravity multiplayer when the payer is not jumping
     [SerializeField] public float maxFallSpeed = 20f;
+    [HideInInspector] public bool isFastFalling;
     [HideInInspector] public bool atMaxFallSpeed;
     [EndFoldout]
     
@@ -179,7 +181,7 @@ public class PlayerController2D : MonoBehaviour
         HandleWallSlide();
         HandleDashing();
         HandleStepClimbing();
-        HandleFastFall();
+        HandleFastDrop();
         
     }
 
@@ -247,12 +249,14 @@ public class PlayerController2D : MonoBehaviour
 
     }
 
-    private void HandleFastFall() {
+    private void HandleFastDrop() {
 
-        if (!canFastFall) return;
+        if (!canFastDrop) return;
         if (isGrounded && !atMaxFallSpeed) return;
 
-        if (verticalInput < 0) {
+        if (verticalInput < 0) {isFastDropping = true;} else {isFastDropping = false;}
+
+        if (isFastDropping) {
 
             rigidBody.velocity = new Vector2(rigidBody.velocity.x, rigidBody.velocity.y - fastFallAcceleration);
         }
@@ -278,8 +282,6 @@ public class PlayerController2D : MonoBehaviour
 
             isDashing = false;
         }
-
-        
     }
 
 
@@ -307,10 +309,7 @@ public class PlayerController2D : MonoBehaviour
                     rigidBody.position += new Vector2(horizontalInput * stepWidth, stepHeight);
                 }
             }
-
         } 
-
-
     }
 
     private void HandleJump() {
@@ -354,11 +353,16 @@ public class PlayerController2D : MonoBehaviour
             isWallSliding = false;
         }
 
-        if (isWallSliding && rigidBody.velocity.y < -wallSlideSpeed) { // Cap fall speed when wall sliding
+        if (isWallSliding) { // Cap slide speed
+            
+            if (isFastDropping) {
 
-            rigidBody.velocity = new Vector2(rigidBody.velocity.x, -wallSlideSpeed);
-            // rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, Mathf.Lerp(rigidBody.velocity.y, -wallSlideSpeed, 0.05f));
-            atMaxFallSpeed = false;
+                rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, -maxWallSlideSpeed*1.5f);
+            } else {
+                rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, -maxWallSlideSpeed);
+            }
+            
+            // rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, Mathf.Lerp(rigidBody.velocity.y, -maxWallSlideSpeed, 2f * Time.fixedDeltaTime));
         }   
     }
 
@@ -371,42 +375,59 @@ public class PlayerController2D : MonoBehaviour
     {
         if (!isGrounded) // Apply gravity when not grounded
         {
-            // Apply gravity and apply the fall multiplier if the player is not jumping
-            float gravityMultiplier = rigidBody.velocity.y > 0 ? 1f : fallMultiplier;
-            rigidBody.velocity += gravityForce * gravityMultiplier * Time.fixedDeltaTime * Vector2.down;
+            // Apply gravity and apply the fall multiplier if the player is falling
+            float gravityMultiplier = rigidBody.velocity.y > 0 ? 1f : fallMultiplier; //
+            rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, Mathf.Lerp(rigidBody.velocity.y, -maxFallSpeed, gravityForce * gravityMultiplier * Time.fixedDeltaTime));
+
+            // Old gravity code gravityForce = 9.8, fall multiplier = 2.5
+            // rigidBody.velocity += gravityForce(9.8) * gravityMultiplier * Time.fixedDeltaTime * Vector2.down;
 
             // Cap fall speed
             if (!isWallSliding) { 
+
+                if (rigidBody.velocity.y < -maxFallSpeed/2) {
+
+                    isFastFalling = true;
+
+                } else { isFastFalling = false; }
+
 
                 if (rigidBody.velocity.y < -maxFallSpeed) {
 
                     atMaxFallSpeed = true;
                     rigidBody.velocity = new Vector2(rigidBody.velocity.x, -maxFallSpeed);
-                    if (CameraController2D.Instance && !CameraController2D.Instance.isShaking) { CameraController2D.Instance.ShakeCamera( 1f, 2f); } // shake camera when at max fall speed
+                    if (CameraController2D.Instance && !CameraController2D.Instance.isShaking) { CameraController2D.Instance.ShakeCamera( 1f, 4f,2,2); } // shake camera when at max fall speed
 
-                } else {
-
-                    atMaxFallSpeed = false;
-                }
+                } else { atMaxFallSpeed = false; }
             }
 
         } else { // Apply gravity when grounded
 
             rigidBody.velocity += 0.1f * Time.fixedDeltaTime * Vector2.down;
 
-            
+            // Check for landing at fast falling
+            if (isFastFalling) {
+
+                if (CameraController2D.Instance && CameraController2D.Instance.isShaking) { // Stop camera shake
+                    CameraController2D.Instance.StopCameraShake();
+                }
+
+                rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce/2); // Make the player bop
+                isFastFalling = false;
+            }
+
             // Check for landing at max speed
             if (atMaxFallSpeed) {
 
                 if (canTakeFallDamage) { DamageHealth(maxFallDamage, "Took fall damage", false);} // Take damage 
 
                 if (CameraController2D.Instance && CameraController2D.Instance.isShaking) { // Stop camera shake
-                    CameraController2D.Instance.isShaking = false;
+                    CameraController2D.Instance.StopCameraShake();
                 }
 
-                rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce/2); // Make the player bop
-
+                rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce); // Make the player bop
                 atMaxFallSpeed = false;
+                isFastFalling = false;
             }
         }
     }
@@ -439,8 +460,9 @@ public class PlayerController2D : MonoBehaviour
 
             case "Spike":
 
-                DamageHealth( 1, "Damaged by: " + collision.gameObject.name);
                 if (currentHealth > 0) { rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce); }
+                DamageHealth( 1, "Damaged by: " + collision.gameObject.name);
+                
                 
             break;
         }
@@ -541,8 +563,7 @@ public class PlayerController2D : MonoBehaviour
     private void Respawn(Vector2 position) {
 
         // Reset stats/states
-        isInvincible = true;
-        invincibilityTimer = 0f;
+        TurnInvincible();
         deaths += 1;
         transform.position = position;
         rigidBody.velocity = new Vector2(0, 0);
@@ -554,7 +575,7 @@ public class PlayerController2D : MonoBehaviour
         if (spawnEffect) {spawnEffect.Play();}
         if (spawnSfx) {spawnSfx.Play();}
         if (CameraController2D.Instance && CameraController2D.Instance.isShaking) { // Stop camera shake
-            CameraController2D.Instance.isShaking = false;
+            CameraController2D.Instance.StopCameraShake();
         }
 
         Debug.Log("Respawned, Deaths: " + deaths);
@@ -564,8 +585,7 @@ public class PlayerController2D : MonoBehaviour
 
         if (currentHealth > 0 && !isInvincible) {
             
-            isInvincible = setInvincible;
-            invincibilityTimer = 0f;
+            if (setInvincible) {TurnInvincible();}
             currentHealth -= damage;
             Debug.Log(cause);
         } 
@@ -576,6 +596,19 @@ public class PlayerController2D : MonoBehaviour
             if (deathSfx) {deathSfx.Play();}
             Respawn(lastCheckpoint);
         }
+    }
+
+
+    private void TurnInvincible() {
+
+        isInvincible = true;
+        invincibilityTimer = 0f;
+    }
+    
+    private void TurnVulnerable() {
+
+        isInvincible = false;
+        invincibilityTimer = 0f;
     }
 
     private void ControlSprite() {
@@ -603,6 +636,7 @@ public class PlayerController2D : MonoBehaviour
     }
     
 
+
     private void CountTimers() {
 
         if (jumpBufferTimer <= holdJumpRequestTime) {
@@ -620,9 +654,7 @@ public class PlayerController2D : MonoBehaviour
             invincibilityTimer += Time.deltaTime;
 
             if (invincibilityTimer >= invincibilityTime) {
-
-                isInvincible = false;
-                invincibilityTimer = 0f;
+                TurnVulnerable();
             }
         }
     }
@@ -651,6 +683,8 @@ public class PlayerController2D : MonoBehaviour
         debugStringBuilder.AppendFormat("Running: {0}\n", wasRunning);
         debugStringBuilder.AppendFormat("Dashing: {0}\n", isDashing);
         debugStringBuilder.AppendFormat("Wall Sliding: {0}\n", isWallSliding);
+        debugStringBuilder.AppendFormat("Fast Dropping: {0}\n", isFastDropping);
+        debugStringBuilder.AppendFormat("Fast Falling: {0}\n", isFastFalling);
         debugStringBuilder.AppendFormat("At Max Fall Speed: {0}\n", atMaxFallSpeed);
 
         debugStringBuilder.AppendFormat("\nInputs:\n");

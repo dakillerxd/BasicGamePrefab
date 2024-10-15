@@ -1,10 +1,12 @@
+
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+using VInspector;
 
 public class CameraController2D : MonoBehaviour
 {
     public static CameraController2D Instance { get; private set; }
+
 
     [Header("Target")]
     [SerializeField] private Transform target;
@@ -12,8 +14,6 @@ public class CameraController2D : MonoBehaviour
     [SerializeField] [ReadOnly] private Vector3 targetPosition;
 
     [Header("Shake Settings")]
-    [SerializeField] private float xShakeRange = 1;
-    [SerializeField] private float yShakeRange = 1;
     [SerializeField] [ReadOnly] public bool isShaking;
     private Vector3 shakeOffset;
 
@@ -38,6 +38,7 @@ public class CameraController2D : MonoBehaviour
     [SerializeField] private float minZoom = 3f;
     [SerializeField] private float maxZoom = 10f;
     [ReadOnly] [SerializeField] private float targetZoom = 5f;
+
 
     private Camera cam;
     private Vector3 currentVelocity;
@@ -174,17 +175,19 @@ public class CameraController2D : MonoBehaviour
     }
 
 
-
-
-
-    public void ShakeCamera(float duration = 0.25f, float magnitude = 0.25f)
-    {
-        if (!target) return;
-        StartCoroutine(Shake(duration, magnitude));
-        Debug.Log("Shaking camera for: " + duration + ", At: " + magnitude);
+    public void StopCameraShake() {
+        isShaking = false;
+        shakeOffset = Vector3.zero;
     }
 
-    private IEnumerator Shake(float duration, float magnitude)
+    public void ShakeCamera(float duration, float magnitude, float xShakeRange = 1f, float yShakeRange = 1f)
+    {
+        if (!target) return;
+        StartCoroutine(Shake(duration, magnitude, xShakeRange, yShakeRange));
+        Debug.Log("Shaking camera for: " + duration + ", At: " + magnitude + ", yRange: " + yShakeRange + ", xRange: " + xShakeRange);
+    }
+
+    private IEnumerator Shake(float duration, float magnitude, float xShakeRange, float yShakeRange)
     {
         isShaking = true;
         float elapsed = 0f;
@@ -236,20 +239,21 @@ public class CameraController2D : MonoBehaviour
             }
 
             if (verticalOffset) {
-                if (player.isGrounded) {
+                if (player.isGrounded) { // player is on the ground
                     offset.y = 1f;
-                } else if (!player.isGrounded && player.rigidBody.velocity.y > 0) { // Player is jumping
-                    offset.y = verticalOffsetStrength;
-                    
-                } else if (!player.isGrounded && player.rigidBody.velocity.y < -2) { // Player is falling
-                    offset.y = -verticalOffsetStrength + Mathf.Clamp(player.rigidBody.velocity.y,-4,0);
+                } else {
+                    if (player.isWallSliding) { // Player is wall sliding
+                        offset.y = verticalOffsetStrength + player.rigidBody.velocity.y;
+                        
+                    }  else { // Player is in the air
+                        if (!player.isWallSliding && player.rigidBody.velocity.y > 2) { // Player is jumping
+                            offset.y = verticalOffsetStrength * player.rigidBody.velocity.y;
+                            
+                        } else if (!player.isWallSliding && player.rigidBody.velocity.y < -3) { // Player is falling
+                            offset.y = -verticalOffsetStrength + Mathf.Clamp(player.rigidBody.velocity.y/2f,-10,0);
 
-                } else if (!player.isGrounded && player.rigidBody.velocity.y < -6) { // Player is falling faster
-                    offset.y = -verticalOffsetStrength + Mathf.Clamp(player.rigidBody.velocity.y,-5,0);
-                    
-                } else if (!player.isGrounded && player.rigidBody.velocity.y <= -player.maxFallSpeed) { // Player is falling at max speed
-                    offset.y = -verticalOffsetStrength + Mathf.Clamp(player.rigidBody.velocity.y,-6,0);
-                    
+                        }
+                    }
                 }
             }
         }

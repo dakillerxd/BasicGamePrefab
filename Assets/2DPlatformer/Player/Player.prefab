@@ -135,6 +135,8 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 64
   isGrounded: 0
+  horizontalInput: 0
+  verticalInput: 0
   isFacingRight: 1
   moveSpeed: 4
   airMoveSpeed: 3
@@ -162,9 +164,9 @@ MonoBehaviour:
   jumpForce: 4
   maxAirJumps: 1
   holdJumpRequestTime: 0.2
-  gravityForce: 9.8
-  fallMultiplier: 2.5
-  maxFallSpeed: 15
+  gravityForce: 0.5
+  fallMultiplier: 4
+  maxFallSpeed: 20
   atMaxFallSpeed: 0
   showDebugText: 1
   showFpsText: 1
