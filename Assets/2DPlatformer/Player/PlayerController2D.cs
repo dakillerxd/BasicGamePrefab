@@ -347,7 +347,7 @@ public class PlayerController2D : MonoBehaviour
 
     private void HandleWallSlide() {
 
-        if (canWallSlide && isTouchingWall && !isGrounded) {
+        if (canWallSlide && isTouchingWall && !isGrounded && rigidBody.velocity.y < 0) {
             isWallSliding = true;
         } else {
             isWallSliding = false;
@@ -662,14 +662,14 @@ public class PlayerController2D : MonoBehaviour
 
     
     #region Debugging functions
+    #if UNITY_EDITOR || DEVELOPMENT_BUILD
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
     private StringBuilder debugStringBuilder = new StringBuilder(256);
     private void UpdateDebugText() {
 
         debugStringBuilder.Clear();
         
-        debugStringBuilder.AppendFormat("Stats:\n");
+        debugStringBuilder.AppendFormat("Player:\n");
         debugStringBuilder.AppendFormat("Health: {0} / {1}\n", currentHealth, maxHealth);
         debugStringBuilder.AppendFormat("Deaths: {0}\n\n", deaths);
         debugStringBuilder.AppendFormat("Air Jumps: {0} / {1}\n", remainingAirJumps, maxAirJumps);
@@ -705,18 +705,14 @@ public class PlayerController2D : MonoBehaviour
         deltaTime += Time.unscaledDeltaTime - deltaTime;
         float fps = 1.0f / deltaTime;
         fpsText.text = string.Format("{0:0.} FPS", fps);
-
         fpsStringBuilder.AppendFormat("{0}\n", (int)fps);
-        // fpsStringBuilder.AppendFormat("FPS: {0}\n", (int)fps);
-        
 
         fpsText.text = fpsStringBuilder.ToString();
 
         
     }
 
-#endif
-    
+    #endif
     #endregion Debugging functions
     
 }
