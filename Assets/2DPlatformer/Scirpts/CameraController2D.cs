@@ -287,11 +287,9 @@ public class CameraController2D : MonoBehaviour
                             
                         } else if (!player.isWallSliding && player.rigidBody.velocity.y < 0 && player.rigidBody.velocity.y > -7) { // Player is falling
                             offset.y = -verticalOffsetStrength + Mathf.Clamp(player.rigidBody.velocity.y/2f,-1,0);
-                            Debug.Log("Falling: " + offset.y);
 
                         } else if (!player.isWallSliding && player.rigidBody.velocity.y < -7) { // Player is fast falling
                             offset.y = -verticalOffsetStrength + Mathf.Clamp(player.rigidBody.velocity.y/2f,-10,0);
-                            Debug.Log("Falling fast: " + offset.y);
 
                         }
                     }

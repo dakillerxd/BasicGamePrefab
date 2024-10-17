@@ -94,8 +94,6 @@ public class PlayerController2D : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool showDebugText = false;
     [SerializeField] private bool showFpsText = false;
-    [SerializeField] private Vector2 spawnPoint;
-    [SerializeField] private Vector2 lastCheckpoint;
     [EndTab]
 
 
@@ -146,7 +144,7 @@ public class PlayerController2D : MonoBehaviour
         currentHealth = maxHealth;
         remainingDashes = maxDashes;
         deaths = 0;
-        SetSpawnPoint(transform.position);
+        CheckpointManager2D.Instance.SetSpawnPoint(transform.position);
 
     }
 
@@ -158,7 +156,7 @@ public class PlayerController2D : MonoBehaviour
         CheckFaceDirection();
         ControlSprite();
 
-        if (Input.GetKeyDown(KeyCode.R)) {Respawn(lastCheckpoint);}
+        if (Input.GetKeyDown(KeyCode.R)) { RespawnFromCheckpoint();}
         if (Input.GetKeyDown(KeyCode.F)) { CameraController2D.Instance.ShakeCamera(4,0.5f);}
 
         if (debugText) {
@@ -480,14 +478,8 @@ public class PlayerController2D : MonoBehaviour
                 break;
             case "Checkpoint":
 
-                var checkpoint = collision.gameObject.GetComponent<Checkpoint2D>();
 
-                if (!checkpoint.active) {
-
-                    checkpoint.SetActive(true);
-                    SetCheckpoint(collision.transform.position);
-                }
-
+                CheckpointManager2D.Instance.ActivateCheckpoint(collision.gameObject);
                 break;
         }
     }
@@ -502,27 +494,19 @@ public class PlayerController2D : MonoBehaviour
     //------------------------------------
     #region  Checkpoint functions
     
-    private void SetSpawnPoint(Vector2 newSpawnPoint) {
-
-        spawnPoint = newSpawnPoint;
-        SetCheckpoint(spawnPoint);
-        Debug.Log("Set spawn point to: " + spawnPoint);
-    }
-
-    private void SetCheckpoint(Vector2 newCheckpoint) {
-
-        lastCheckpoint = newCheckpoint;
-        Debug.Log("Set checkpoint to: " + lastCheckpoint);
-    }
 
     [Button] private void RespawnFromCheckpoint() {
 
-        Respawn(lastCheckpoint);
+            if (CheckpointManager2D.Instance.activeCheckpoint) {
+                Respawn(CheckpointManager2D.Instance.activeCheckpoint.transform.position);
+            } else { RespawnFromSpawnPoint();}
+
+        
     }
 
     [Button] private void RespawnFromSpawnPoint() {
 
-        Respawn(spawnPoint);
+        Respawn(CheckpointManager2D.Instance.playerSpawnPoint);
     }
     
     #endregion Checkpoint functions
@@ -562,6 +546,7 @@ public class PlayerController2D : MonoBehaviour
 
     private void Respawn(Vector2 position) {
 
+        
         // Reset stats/states
         TurnInvincible();
         deaths += 1;
@@ -581,6 +566,7 @@ public class PlayerController2D : MonoBehaviour
         Debug.Log("Respawned, Deaths: " + deaths);
     }
 
+
     private void DamageHealth(int damage, string cause = "", bool setInvincible = true) {
 
         if (currentHealth > 0 && !isInvincible) {
@@ -594,7 +580,9 @@ public class PlayerController2D : MonoBehaviour
 
             if (deathEffect) {deathEffect.Play();}
             if (deathSfx) {deathSfx.Play();}
-            Respawn(lastCheckpoint);
+
+            RespawnFromCheckpoint();
+            
         }
     }
 
