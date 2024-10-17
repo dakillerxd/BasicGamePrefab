@@ -172,6 +172,8 @@ MonoBehaviour:
   holdDashRequestTime: 0.1
   canFastDrop: 1
   fastFallAcceleration: 0.1
+  canCoyoteJump: 1
+  coyoteJumpTime: 0.1
   rigidBody: {fileID: 2783392023027556574}
   spriteRenderer: {fileID: 4017478420366802647}
   collBody: {fileID: 6793365586128216939}

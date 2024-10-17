@@ -38,12 +38,12 @@ public class PlayerController2D : MonoBehaviour
     [Header("Jump")]
     [SerializeField] private float jumpForce = 4f;
     [SerializeField] [Range(0, 5f)] private int maxAirJumps = 1;
-    [SerializeField] [Range(0.1f, 1f)] private float holdJumpRequestTime = 0.2f; // For how long the jump buffer will hold
+    [SerializeField] [Range(0.1f, 1f)] private float holdJumpBuffer = 0.2f; // For how long the jump buffer will hold
     [SerializeField] private LayerMask groundLayer;
     [HideInInspector] public bool isGrounded;
     private bool jumpRequested;
     private int remainingAirJumps;
-    private float jumpBufferTimer = 0;
+    private float holdJumpTimer = 0;
 
     [Header("Gravity")]
     [SerializeField] private float gravityForce = 9.8f;
@@ -61,6 +61,7 @@ public class PlayerController2D : MonoBehaviour
     // ----------------------------------------------------------------------
 
     [Tab("Player Abilities")]
+    [Header("Running")]
     [SerializeField] private bool canRun = true;
         [ShowIf("canRun")] 
         [SerializeField] private float runSpeed = 5f;
@@ -69,7 +70,8 @@ public class PlayerController2D : MonoBehaviour
         private bool wasRunning;
         [EndIf]
 
-    [Space(5)] [SerializeField] private bool autoClimbSteps = true;
+    [Header("Climb Steps")]
+    [SerializeField] private bool autoClimbSteps = true;
         [ShowIf("autoClimbSteps")]
         [SerializeField] [Range(0, 1f)] private float stepHeight = 0.12f;
         [SerializeField] [Range(0, 1f)] private float stepWidth = 0.2f;
@@ -77,7 +79,8 @@ public class PlayerController2D : MonoBehaviour
         [SerializeField] private LayerMask stepLayer;
         [EndIf]
     
-    [Space(5)] [SerializeField] private bool canWallSlide = true;
+    [Header("Wall Slide")]
+    [SerializeField] private bool canWallSlide = true;
         [ShowIf("canWallSlide")]
         [SerializeField] private float maxWallSlideSpeed = 3f;
         [SerializeField] [Range(0, 1f)] private float wallSlideStickStrength = 0.3f;
@@ -85,8 +88,8 @@ public class PlayerController2D : MonoBehaviour
         [HideInInspector] public bool isWallSliding;
         [EndIf]
 
-    
-    [Space(5)] [SerializeField] private bool canDash = true;
+    [Header("Dash")]
+    [SerializeField] private bool canDash = true;
         [ShowIf("canDash")]
         [SerializeField] private float dashForce = 20f;
         [SerializeField] private int maxDashes = 1;
@@ -97,17 +100,19 @@ public class PlayerController2D : MonoBehaviour
         private float dashBufferTimer = 0;
         [EndIf]
 
-    
-    [Space(5)] [SerializeField] private bool canFastDrop = true;
+    [Header("Fast Drop")]
+    [SerializeField] private bool canFastDrop = true;
         [ShowIf("canFastDrop")]
         [SerializeField] [Range(0, 1f)] private float fastFallAcceleration = 0.1f;
         private bool isFastDropping;
         [EndIf]
 
-    [Space(5)] [SerializeField] private bool canCoyoteJump = true;
+    [Header("Coyote Jump")]
+    [SerializeField] private bool canCoyoteJump = true;
         [ShowIf("canCoyoteJump")]
-        [SerializeField] [Range(0, 1f)] private float coyoteJumpTime = 0.1f;
+        [SerializeField] [Range(0, 1f)] private float coyoteJumpBuffer = 0.1f;
         private bool isCoyoteJumping;
+        private float coyoteJumpTime;
         [EndIf]
     [EndTab]
     
@@ -186,6 +191,7 @@ public class PlayerController2D : MonoBehaviour
         }
     }
 
+
     private void FixedUpdate() {
 
         CollisionChecks();
@@ -194,12 +200,10 @@ public class PlayerController2D : MonoBehaviour
         HandleJump();
         HandleWallSlide();
         HandleDashing();
+        HandleCoyoteJump();
         HandleStepClimbing();
         HandleFastDrop();
-        
     }
-
-
 
 
     //------------------------------------
@@ -332,16 +336,18 @@ public class PlayerController2D : MonoBehaviour
 
         if (jumpRequested) {
 
-            if (jumpBufferTimer > holdJumpRequestTime) { // Jump buffer
+            if (holdJumpTimer > holdJumpBuffer) { // Jump buffer
 
                 jumpRequested = false;
                 return;
             }
 
-            if (isGrounded) { // Jump on ground
+            if (isGrounded || isCoyoteJumping) { // Jump on ground or coyote jumping
 
                 rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
                 jumpRequested = false;
+                coyoteJumpTime = coyoteJumpBuffer;
+                isCoyoteJumping = false;
                 if (jumpSfx) {jumpSfx.Play();}
             }
             else { // Air jump
@@ -363,7 +369,23 @@ public class PlayerController2D : MonoBehaviour
 
 
     private void HandleCoyoteJump() {
-        
+
+        if (!canCoyoteJump) return;
+
+        if (isGrounded) { // Reset coyote jump when grounded
+
+            coyoteJumpTime = 0;
+            isCoyoteJumping = false;
+
+        } else { // Start coyote jump timer
+
+            if (coyoteJumpTime <= coyoteJumpBuffer) {
+                isCoyoteJumping = true;
+            } else {
+                isCoyoteJumping = false;
+            }
+
+        } 
     }
 
 
@@ -554,7 +576,7 @@ public class PlayerController2D : MonoBehaviour
         if (Input.GetButtonDown("Jump"))
         {
             jumpRequested = true;
-            jumpBufferTimer = 0f;
+            holdJumpTimer = 0f;
         }
 
         // Check for dash input
@@ -648,12 +670,11 @@ public class PlayerController2D : MonoBehaviour
     }
     
 
-
     private void CountTimers() {
 
-        if (jumpBufferTimer <= holdJumpRequestTime) {
+        if (holdJumpTimer <= holdJumpBuffer) {
 
-            jumpBufferTimer += Time.deltaTime;
+            holdJumpTimer += Time.deltaTime;
         }
 
         if (dashBufferTimer <= holdDashRequestTime) {
@@ -669,6 +690,12 @@ public class PlayerController2D : MonoBehaviour
                 TurnVulnerable();
             }
         }
+
+        if (coyoteJumpTime <= coyoteJumpBuffer) {
+
+            coyoteJumpTime += Time.deltaTime;
+        }
+
     }
     #endregion Other functions
 
@@ -696,6 +723,7 @@ public class PlayerController2D : MonoBehaviour
         debugStringBuilder.AppendFormat("Dashing: {0}\n", isDashing);
         debugStringBuilder.AppendFormat("Wall Sliding: {0}\n", isWallSliding);
         debugStringBuilder.AppendFormat("Fast Dropping: {0}\n", isFastDropping);
+        debugStringBuilder.AppendFormat("Coyote Jumping: {0}\n", isCoyoteJumping);
         debugStringBuilder.AppendFormat("Fast Falling: {0}\n", isFastFalling);
         debugStringBuilder.AppendFormat("At Max Fall Speed: {0}\n", atMaxFallSpeed);
 
