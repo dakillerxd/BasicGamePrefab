@@ -131,10 +131,6 @@ MonoBehaviour:
   invincibilityTime: 0.3
   canTakeFallDamage: 0
   maxFallDamage: 1
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 64
-  isGrounded: 0
   horizontalInput: 0
   verticalInput: 0
   isFacingRight: 1
@@ -142,6 +138,20 @@ MonoBehaviour:
   airMoveSpeed: 3
   moveAcceleration: 0.5
   moveDeceleration: 0.25
+  jumpForce: 4
+  maxAirJumps: 1
+  holdJumpRequestTime: 0.2
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 64
+  isGrounded: 0
+  gravityForce: 0.5
+  fallMultiplier: 4
+  maxFallSpeed: 20
+  isFastFalling: 0
+  atMaxFallSpeed: 0
+  showDebugText: 1
+  showFpsText: 1
   canRun: 1
   runSpeed: 5
   airRunSpeed: 6
@@ -153,25 +163,15 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 64
   canWallSlide: 1
-  wallSlideSpeed: 3
+  maxWallSlideSpeed: 3
   wallSlideStickStrength: 0.3
+  isWallSliding: 0
   canDash: 1
   dashForce: 20
   maxDashes: 1
   holdDashRequestTime: 0.1
-  canFastFall: 1
+  canFastDrop: 1
   fastFallAcceleration: 0.1
-  jumpForce: 4
-  maxAirJumps: 1
-  holdJumpRequestTime: 0.2
-  gravityForce: 0.5
-  fallMultiplier: 4
-  maxFallSpeed: 20
-  atMaxFallSpeed: 0
-  showDebugText: 1
-  showFpsText: 1
-  spawnPoint: {x: 0, y: 0}
-  lastCheckpoint: {x: 0, y: 0}
   rigidBody: {fileID: 2783392023027556574}
   spriteRenderer: {fileID: 4017478420366802647}
   collBody: {fileID: 6793365586128216939}

@@ -4897,10 +4897,6 @@ PrefabInstance:
       propertyPath: debugText
       value: 
       objectReference: {fileID: 1537445842}
-    - target: {fileID: 6010112362093298342, guid: 2c81b8d567898d348be5c35685fcd9d0, type: 3}
-      propertyPath: wallSlideSpeed
-      value: 5
-      objectReference: {fileID: 0}
     - target: {fileID: 6449356787988531081, guid: 2c81b8d567898d348be5c35685fcd9d0, type: 3}
       propertyPath: m_LocalPosition.x
       value: 4.1

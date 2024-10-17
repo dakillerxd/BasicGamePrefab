@@ -13,15 +13,14 @@ public class PlayerController2D : MonoBehaviour
 
 
     [Tab("Player Settings")]
-    [Header("Settings")]
+    [Header("Health")]
     [SerializeField] private int maxHealth = 2;
     [SerializeField] [Range(0, 1f)] private float invincibilityTime = 1f;
     [SerializeField] private bool canTakeFallDamage = true;
         [ShowIf("canTakeFallDamage")]
         [SerializeField] private int maxFallDamage = 1;
         [EndIf]
-    [SerializeField] private LayerMask groundLayer;
-    [HideInInspector] public bool isGrounded;
+
     private int currentHealth;
     private int deaths;
     private bool isInvincible;
@@ -30,11 +29,38 @@ public class PlayerController2D : MonoBehaviour
     [HideInInspector] public  float verticalInput;
     [HideInInspector] public bool isFacingRight = true;
 
-    [Foldout("Movement Settings")]
+    [Header("Movement")]
     [SerializeField] private float moveSpeed = 4f;
     [SerializeField] private float airMoveSpeed = 3f;
     [SerializeField] [Range(0.1f, 2f)] private float moveAcceleration = 1f;
     [SerializeField] [Range(0f, 2f)] private float moveDeceleration = 0.25f;
+
+    [Header("Jump")]
+    [SerializeField] private float jumpForce = 4f;
+    [SerializeField] [Range(0, 5f)] private int maxAirJumps = 1;
+    [SerializeField] [Range(0.1f, 1f)] private float holdJumpRequestTime = 0.2f; // For how long the jump buffer will hold
+    [SerializeField] private LayerMask groundLayer;
+    [HideInInspector] public bool isGrounded;
+    private bool jumpRequested;
+    private int remainingAirJumps;
+    private float jumpBufferTimer = 0;
+
+    [Header("Gravity")]
+    [SerializeField] private float gravityForce = 9.8f;
+    [SerializeField] [Range(0f, 10f)] private float fallMultiplier = 2.5f; // Gravity multiplayer when the payer is not jumping
+    [SerializeField] public float maxFallSpeed = 20f;
+    [HideInInspector] public bool isFastFalling;
+    [HideInInspector] public bool atMaxFallSpeed;
+    
+
+    [Header("Debug")]
+    [SerializeField] private bool showDebugText = false;
+    [SerializeField] private bool showFpsText = false;
+    [EndTab]
+
+    // ----------------------------------------------------------------------
+
+    [Tab("Player Abilities")]
     [SerializeField] private bool canRun = true;
         [ShowIf("canRun")] 
         [SerializeField] private float runSpeed = 5f;
@@ -42,21 +68,25 @@ public class PlayerController2D : MonoBehaviour
         private bool runInput;
         private bool wasRunning;
         [EndIf]
-    [SerializeField] private bool autoClimbSteps = true;
+
+    [Space(5)] [SerializeField] private bool autoClimbSteps = true;
         [ShowIf("autoClimbSteps")]
         [SerializeField] [Range(0, 1f)] private float stepHeight = 0.12f;
         [SerializeField] [Range(0, 1f)] private float stepWidth = 0.2f;
         [SerializeField] [Range(0, 1f)] private float stepCheckDistance = 0.04f;
         [SerializeField] private LayerMask stepLayer;
         [EndIf]
-    [SerializeField] private bool canWallSlide = true;
+    
+    [Space(5)] [SerializeField] private bool canWallSlide = true;
         [ShowIf("canWallSlide")]
         [SerializeField] private float maxWallSlideSpeed = 3f;
         [SerializeField] [Range(0, 1f)] private float wallSlideStickStrength = 0.3f;
         private bool isTouchingWall;
         [HideInInspector] public bool isWallSliding;
         [EndIf]
-    [SerializeField] private bool canDash = true;
+
+    
+    [Space(5)] [SerializeField] private bool canDash = true;
         [ShowIf("canDash")]
         [SerializeField] private float dashForce = 20f;
         [SerializeField] private int maxDashes = 1;
@@ -66,36 +96,22 @@ public class PlayerController2D : MonoBehaviour
         private bool isDashing;
         private float dashBufferTimer = 0;
         [EndIf]
-    [SerializeField] private bool canFastDrop = true;
+
+    
+    [Space(5)] [SerializeField] private bool canFastDrop = true;
         [ShowIf("canFastDrop")]
         [SerializeField] [Range(0, 1f)] private float fastFallAcceleration = 0.1f;
         private bool isFastDropping;
         [EndIf]
-    [EndFoldout]
 
-    [Foldout("Jump Settings")]
-    [SerializeField] private float jumpForce = 4f;
-    [SerializeField] [Range(0, 5f)] private int maxAirJumps = 1;
-    [SerializeField] [Range(0.1f, 1f)] private float holdJumpRequestTime = 0.2f; // For how long the jump buffer will hold
-    private bool jumpRequested;
-    private int remainingAirJumps;
-    private float jumpBufferTimer = 0;
-    [EndFoldout]
-
-    [Foldout("Gravity Settings")]
-    [SerializeField] private float gravityForce = 9.8f;
-    [SerializeField] [Range(0f, 10f)] private float fallMultiplier = 2.5f; // Gravity multiplayer when the payer is not jumping
-    [SerializeField] public float maxFallSpeed = 20f;
-    [HideInInspector] public bool isFastFalling;
-    [HideInInspector] public bool atMaxFallSpeed;
-    [EndFoldout]
-    
-
-    [Header("Debug")]
-    [SerializeField] private bool showDebugText = false;
-    [SerializeField] private bool showFpsText = false;
+    [Space(5)] [SerializeField] private bool canCoyoteJump = true;
+        [ShowIf("canCoyoteJump")]
+        [SerializeField] [Range(0, 1f)] private float coyoteJumpTime = 0.1f;
+        private bool isCoyoteJumping;
+        [EndIf]
     [EndTab]
-
+    
+    // ----------------------------------------------------------------------
 
     [Tab("References")]
     [SerializeField] public Rigidbody2D rigidBody;
@@ -268,7 +284,9 @@ public class PlayerController2D : MonoBehaviour
 
         if (dashRequested && remainingDashes > 0) {
 
+            
             isDashing = true;
+            TurnInvincible();
 
             int dashDirection = isFacingRight ? 1 : -1;
             rigidBody.velocity = new Vector2(dashForce * dashDirection, rigidBody.velocity.y);
@@ -342,6 +360,12 @@ public class PlayerController2D : MonoBehaviour
         }
         
     }
+
+
+    private void HandleCoyoteJump() {
+        
+    }
+
 
     private void HandleWallSlide() {
 
