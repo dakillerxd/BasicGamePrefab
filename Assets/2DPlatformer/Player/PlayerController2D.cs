@@ -344,11 +344,15 @@ public class PlayerController2D : MonoBehaviour
 
             if (isGrounded || isCoyoteJumping) { // Jump on ground or coyote jumping
 
+                // jump
                 rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
                 jumpRequested = false;
-                coyoteJumpTime = coyoteJumpBuffer;
-                isCoyoteJumping = false;
                 if (jumpSfx) {jumpSfx.Play();}
+
+                // Reset coyote jump
+                coyoteJumpTime = 0;
+                isCoyoteJumping = false;
+                
             }
             else { // Air jump
                 if (remainingAirJumps > 0) {
@@ -379,11 +383,6 @@ public class PlayerController2D : MonoBehaviour
 
         } else { // Start coyote jump timer
 
-            if (coyoteJumpTime <= coyoteJumpBuffer) {
-                isCoyoteJumping = true;
-            } else {
-                isCoyoteJumping = false;
-            }
 
         } 
     }
@@ -672,16 +671,19 @@ public class PlayerController2D : MonoBehaviour
 
     private void CountTimers() {
 
+        // Jump buffer time
         if (holdJumpTimer <= holdJumpBuffer) {
 
             holdJumpTimer += Time.deltaTime;
         }
 
+        // Dash buffer timer
         if (dashBufferTimer <= holdDashRequestTime) {
 
             dashBufferTimer += Time.deltaTime;
         }
 
+        // Invincibility timer
         if (isInvincible) {
 
             invincibilityTimer += Time.deltaTime;
@@ -691,9 +693,18 @@ public class PlayerController2D : MonoBehaviour
             }
         }
 
-        if (coyoteJumpTime <= coyoteJumpBuffer) {
-
+        // Coyote jump timing
+        if (!isGrounded)
+        {
             coyoteJumpTime += Time.deltaTime;
+            if (coyoteJumpTime <= coyoteJumpBuffer)
+            {
+                isCoyoteJumping = true;
+            }
+            else
+            {
+                isCoyoteJumping = false;
+            }
         }
 
     }
@@ -723,7 +734,7 @@ public class PlayerController2D : MonoBehaviour
         debugStringBuilder.AppendFormat("Dashing: {0}\n", isDashing);
         debugStringBuilder.AppendFormat("Wall Sliding: {0}\n", isWallSliding);
         debugStringBuilder.AppendFormat("Fast Dropping: {0}\n", isFastDropping);
-        debugStringBuilder.AppendFormat("Coyote Jumping: {0}\n", isCoyoteJumping);
+        debugStringBuilder.AppendFormat("Coyote Jumping: {0} ({1:0.0} / {2:0.0})\n", isCoyoteJumping,coyoteJumpTime,coyoteJumpBuffer);
         debugStringBuilder.AppendFormat("Fast Falling: {0}\n", isFastFalling);
         debugStringBuilder.AppendFormat("At Max Fall Speed: {0}\n", atMaxFallSpeed);
 
