@@ -37,16 +37,18 @@ public class PlayerController2D : MonoBehaviour
 
     [Header("Jump")]
     [SerializeField] private float jumpForce = 4f;
-    [SerializeField] [Range(0, 5f)] private int maxAirJumps = 1;
+    [SerializeField] [Range(0, 5f)] private int maxJumps = 2;
     [SerializeField] [Range(0.1f, 1f)] private float holdJumpBuffer = 0.2f; // For how long the jump buffer will hold
     [SerializeField] [Range(0, 2f)] private float coyoteJumpBuffer = 0.1f;
     [SerializeField] private LayerMask groundLayer;
     [HideInInspector] public bool isGrounded;
     private bool jumpRequested;
-    private int remainingAirJumps;
+    private bool isJumping;
+    private int remainingJumps;
     private float holdJumpTimer = 0;
     private bool canCoyoteJump;
     private float coyoteJumpTime;
+    private bool wasGroundedLastFrame = false;
 
     [Header("Gravity")]
     [SerializeField] private float gravityForce = 9.8f;
@@ -169,6 +171,7 @@ public class PlayerController2D : MonoBehaviour
 
         CheckForInput();
         CountTimers();
+        CoyoteTimeCheck();
         CheckFaceDirection();
         ControlSprite();
 
@@ -337,7 +340,7 @@ public class PlayerController2D : MonoBehaviour
         }
 
         if (isWallSliding) { // Cap slide speed
-            
+
             if (isFastDropping) {
 
                 rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, -maxWallSlideSpeed*1.5f);
@@ -353,61 +356,76 @@ public class PlayerController2D : MonoBehaviour
 
 
     //------------------------------------
-    #region Jump function
+    #region Jump functions
     private void HandleJump() {
 
         if (jumpRequested) {
-
-            if (holdJumpTimer > holdJumpBuffer) { // Jump buffer
-
+            if (holdJumpTimer > holdJumpBuffer) {
                 jumpRequested = false;
                 return;
             }
-
-            if (isGrounded || canCoyoteJump) { // Jump on ground or coyote jumping
-
-                // jump
-                rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
-                jumpRequested = false;
-
-                // Play effects
-                if (jumpEffect) {jumpEffect.Play();}
-                if (jumpSfx) {jumpSfx.Play();}
-
-                // Reset coyote jump
-                coyoteJumpTime = 0;
-                canCoyoteJump = false;
-                
-            }
-            else { // Air jump
-                if (remainingAirJumps > 0) {
-
-                    // Jump
-                    rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
-                    jumpRequested = false;
-                    remainingAirJumps--;
-                    
-                    // Play effects
-                    if (airJumpEffect) {airJumpEffect.Play();}
-                    if (jumpSfx) {jumpSfx.Play();}
-                }
+            
+            if (isGrounded || canCoyoteJump) { // Ground / Coyote jump
+                ExecuteJump(1);
+            } else if (!(isGrounded && canCoyoteJump) && remainingJumps > 1) { // Extra jump after coyote time passed
+                ExecuteJump(2);
+            } else if (!(isGrounded && canCoyoteJump) && remainingJumps > 0) { // Extra jumps
+                ExecuteJump(1);
             }
         }
 
-
-        if (isGrounded ) { 
-            
-            // Reset air jumps when on ground
-            remainingAirJumps = maxAirJumps;
-
-            // Reset coyote jump when grounded
-            coyoteJumpTime = coyoteJumpBuffer;
-            canCoyoteJump = true;
+        if (isGrounded && !isJumping) { // Reset jumps
+            remainingJumps = maxJumps;
         }
 
         
+        if (!isGrounded && rigidBody.velocity.y <= 0) { // Reset jump state
+            isJumping = false;
+        }
+
+        // Debug.Log("Jump: " + isJumping);
     }
-    #endregion Jump function
+
+    private void CoyoteTimeCheck() {
+
+        // Reset coyote jump
+        if (isGrounded) {
+            canCoyoteJump = true;
+            coyoteJumpTime = coyoteJumpBuffer;
+        }
+
+        // Update coyote time
+        if (canCoyoteJump) {
+            if (coyoteJumpTime > 0) {
+                coyoteJumpTime -= Time.deltaTime;
+            } else {
+                canCoyoteJump = false;
+            }
+        }
+    }
+
+    private void ExecuteJump(int jumpCost) { 
+
+        // Play effects
+        if (isGrounded) {
+            if (jumpEffect) jumpEffect.Play();
+        } else {
+            if (airJumpEffect) airJumpEffect.Play();
+        } 
+
+        // Jump
+        rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
+        jumpRequested = false;
+        remainingJumps -= jumpCost;
+        isJumping = true;
+
+        // Reset coyote state
+        coyoteJumpTime = 0;
+        canCoyoteJump = false;
+
+    }
+
+    #endregion Jump functions
 
     //------------------------------------
     #region Gravity function
@@ -416,11 +434,9 @@ public class PlayerController2D : MonoBehaviour
         if (!isGrounded) // Apply gravity when not grounded
         {
             // Apply gravity and apply the fall multiplier if the player is falling
-            float gravityMultiplier = rigidBody.velocity.y > 0 ? 1f : fallMultiplier; //
+            float gravityMultiplier = rigidBody.velocity.y > 0 ? 1f : fallMultiplier; 
             rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, Mathf.Lerp(rigidBody.velocity.y, -maxFallSpeed, gravityForce * gravityMultiplier * Time.fixedDeltaTime));
 
-            // Old gravity code gravityForce = 9.8, fall multiplier = 2.5
-            // rigidBody.velocity += gravityForce(9.8) * gravityMultiplier * Time.fixedDeltaTime * Vector2.down;
 
             // Cap fall speed
             if (!isWallSliding) { 
@@ -459,7 +475,8 @@ public class PlayerController2D : MonoBehaviour
             // Check for landing at max speed
             if (atMaxFallSpeed) {
 
-                if (canTakeFallDamage) { DamageHealth(maxFallDamage, "Took fall damage", false);} // Take damage 
+                if (canTakeFallDamage) { DamageHealth(maxFallDamage, false, "Ground");} // Take damage 
+                
 
                 if (CameraController2D.Instance && CameraController2D.Instance.isShaking) { // Stop camera shake
                     CameraController2D.Instance.StopCameraShake();
@@ -494,16 +511,19 @@ public class PlayerController2D : MonoBehaviour
         {
             case "Enemy":
 
-                DamageHealth( 1, "Damaged by: " + collision.gameObject.name);
+                Vector2 enemyNormal = collision.GetContact(0).normal;
+                DamageHealthAndPush(1, 1, enemyNormal, true, collision.gameObject.name);
 
             break;
 
             case "Spike":
 
-                if (currentHealth > 0) { rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce); }
-                DamageHealth( 1, "Damaged by: " + collision.gameObject.name);
+                Vector2 spikeNormal = collision.GetContact(0).normal;
                 
-                
+                DamageHealthAndPush(1, 2, spikeNormal, true, collision.gameObject.name);
+
+
+
             break;
         }
     }
@@ -515,7 +535,7 @@ public class PlayerController2D : MonoBehaviour
         {
             case "RespawnTrigger":
 
-                DamageHealth(maxHealth, "Fell off the map");
+                DamageHealth(maxFallDamage, false, "World");
 
                 break;
             case "Checkpoint":
@@ -596,7 +616,7 @@ public class PlayerController2D : MonoBehaviour
         rigidBody.velocity = new Vector2(0, 0);
         currentHealth = maxHealth;
         remainingDashes = maxDashes;
-        remainingAirJumps = maxAirJumps;
+        remainingJumps = maxJumps;
 
         // Play effects
         if (spawnEffect) {spawnEffect.Play();}
@@ -609,13 +629,14 @@ public class PlayerController2D : MonoBehaviour
     }
 
 
-    private void DamageHealth(int damage, string cause = "", bool setInvincible = true) {
+    private void DamageHealth(int damage, bool setInvincible, string cause = "")
+    {
 
         if (currentHealth > 0 && !isInvincible) {
             
             if (setInvincible) {TurnInvincible();}
             currentHealth -= damage;
-            Debug.Log(cause);
+            Debug.Log("Damaged by: " + cause);
         } 
 
         if (currentHealth <= 0) {
@@ -623,11 +644,33 @@ public class PlayerController2D : MonoBehaviour
             if (deathEffect) {deathEffect.Play();}
             if (deathSfx) {deathSfx.Play();}
 
+            Debug.Log("Death by: " + cause);
+
             RespawnFromCheckpoint();
-            
         }
     }
 
+    private void DamageHealthAndPush(int damage ,float pushStrengthMultiplier , Vector2 pushDir , bool setInvincible, string cause = "" )
+    {
+
+        if (currentHealth > 0 && !isInvincible) {
+            
+            if (setInvincible) {TurnInvincible();}
+            rigidBody.velocity = new Vector2(rigidBody.velocity.x + (pushDir.x * 15 * pushStrengthMultiplier), rigidBody.velocity.y + (pushDir.y * 2 * pushStrengthMultiplier));
+            currentHealth -= damage;
+            Debug.Log("Damaged by: " + cause);
+        } 
+
+        if (currentHealth <= 0) {
+
+            if (deathEffect) {deathEffect.Play();}
+            if (deathSfx) {deathSfx.Play();}
+
+            Debug.Log("Death by: " + cause);
+
+            RespawnFromCheckpoint();
+        }
+    }
 
     private void TurnInvincible() {
 
@@ -690,20 +733,10 @@ public class PlayerController2D : MonoBehaviour
             }
         }
 
-        // Coyote jump timer
-        if (canCoyoteJump && !isGrounded) {
 
-            coyoteJumpTime -= Time.deltaTime;
-
-            if (coyoteJumpTime <= 0)
-            {
-                canCoyoteJump = false;
-            }
-        }
 
     }
     #endregion Other functions
-
     
     #region Debugging functions
     #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -716,7 +749,7 @@ public class PlayerController2D : MonoBehaviour
         debugStringBuilder.AppendFormat("Player:\n");
         debugStringBuilder.AppendFormat("Health: {0} / {1}\n", currentHealth, maxHealth);
         debugStringBuilder.AppendFormat("Deaths: {0}\n\n", deaths);
-        debugStringBuilder.AppendFormat("Air Jumps: {0} / {1}\n", remainingAirJumps, maxAirJumps);
+        debugStringBuilder.AppendFormat("Jumps: {0} / {1}\n", remainingJumps, maxJumps);
         debugStringBuilder.AppendFormat("Dashes: {0} / {1}\n", remainingDashes, maxDashes);
         debugStringBuilder.AppendFormat("Velocity: {0}\n", rigidBody.velocity);
 
@@ -728,7 +761,8 @@ public class PlayerController2D : MonoBehaviour
         debugStringBuilder.AppendFormat("Dashing: {0}\n", isDashing);
         debugStringBuilder.AppendFormat("Wall Sliding: {0}\n", isWallSliding);
         debugStringBuilder.AppendFormat("Fast Dropping: {0}\n", isFastDropping);
-        debugStringBuilder.AppendFormat("Coyote Jumping: {0} ({1:0.0} / {2:0.0})\n", canCoyoteJump,coyoteJumpTime,coyoteJumpBuffer);
+        debugStringBuilder.AppendFormat("Coyote Jumping: {0} ({1:0.0} / {2:0.0})\n",canCoyoteJump, coyoteJumpTime,coyoteJumpBuffer);
+        debugStringBuilder.AppendFormat("Jumping: {0}\n", isJumping);
         debugStringBuilder.AppendFormat("Fast Falling: {0}\n", isFastFalling);
         debugStringBuilder.AppendFormat("At Max Fall Speed: {0}\n", atMaxFallSpeed);
 

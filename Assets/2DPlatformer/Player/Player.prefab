@@ -139,9 +139,9 @@ MonoBehaviour:
   moveAcceleration: 0.5
   moveDeceleration: 0.25
   jumpForce: 4
-  maxAirJumps: 1
+  maxJumps: 2
   holdJumpBuffer: 0.2
-  coyoteJumpBuffer: 1
+  coyoteJumpBuffer: 0.1
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
@@ -177,6 +177,7 @@ MonoBehaviour:
   spriteRenderer: {fileID: 4017478420366802647}
   collBody: {fileID: 6793365586128216939}
   collFeet: {fileID: 6324724260074634322}
+  jumpEffect: {fileID: 0}
   airJumpEffect: {fileID: 0}
   runEffect: {fileID: 0}
   deathEffect: {fileID: 0}
