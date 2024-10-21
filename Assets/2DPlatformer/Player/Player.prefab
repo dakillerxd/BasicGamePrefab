@@ -140,7 +140,8 @@ MonoBehaviour:
   moveDeceleration: 0.25
   jumpForce: 4
   maxAirJumps: 1
-  holdJumpRequestTime: 0.2
+  holdJumpBuffer: 0.2
+  coyoteJumpBuffer: 1
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
@@ -152,28 +153,26 @@ MonoBehaviour:
   atMaxFallSpeed: 0
   showDebugText: 1
   showFpsText: 1
-  canRun: 1
+  runAbility: 1
   runSpeed: 5
   airRunSpeed: 6
-  autoClimbSteps: 1
+  autoClimbStepsAbility: 1
   stepHeight: 0.12
   stepWidth: 0.1
   stepCheckDistance: 0.05
   stepLayer:
     serializedVersion: 2
     m_Bits: 64
-  canWallSlide: 1
+  wallSlideAbility: 1
   maxWallSlideSpeed: 3
   wallSlideStickStrength: 0.3
   isWallSliding: 0
-  canDash: 1
+  dashAbility: 1
   dashForce: 20
   maxDashes: 1
   holdDashRequestTime: 0.1
-  canFastDrop: 1
+  fastDropAbility: 1
   fastFallAcceleration: 0.1
-  canCoyoteJump: 1
-  coyoteJumpTime: 0.1
   rigidBody: {fileID: 2783392023027556574}
   spriteRenderer: {fileID: 4017478420366802647}
   collBody: {fileID: 6793365586128216939}

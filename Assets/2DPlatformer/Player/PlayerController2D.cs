@@ -39,11 +39,14 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private float jumpForce = 4f;
     [SerializeField] [Range(0, 5f)] private int maxAirJumps = 1;
     [SerializeField] [Range(0.1f, 1f)] private float holdJumpBuffer = 0.2f; // For how long the jump buffer will hold
+    [SerializeField] [Range(0, 2f)] private float coyoteJumpBuffer = 0.1f;
     [SerializeField] private LayerMask groundLayer;
     [HideInInspector] public bool isGrounded;
     private bool jumpRequested;
     private int remainingAirJumps;
     private float holdJumpTimer = 0;
+    private bool canCoyoteJump;
+    private float coyoteJumpTime;
 
     [Header("Gravity")]
     [SerializeField] private float gravityForce = 9.8f;
@@ -62,8 +65,8 @@ public class PlayerController2D : MonoBehaviour
 
     [Tab("Player Abilities")]
     [Header("Running")]
-    [SerializeField] private bool canRun = true;
-        [ShowIf("canRun")] 
+    [SerializeField] private bool runAbility = true;
+        [ShowIf("runAbility")] 
         [SerializeField] private float runSpeed = 5f;
         [SerializeField] private float airRunSpeed = 6f; 
         private bool runInput;
@@ -71,8 +74,8 @@ public class PlayerController2D : MonoBehaviour
         [EndIf]
 
     [Header("Climb Steps")]
-    [SerializeField] private bool autoClimbSteps = true;
-        [ShowIf("autoClimbSteps")]
+    [SerializeField] private bool autoClimbStepsAbility = true;
+        [ShowIf("autoClimbStepsAbility")]
         [SerializeField] [Range(0, 1f)] private float stepHeight = 0.12f;
         [SerializeField] [Range(0, 1f)] private float stepWidth = 0.2f;
         [SerializeField] [Range(0, 1f)] private float stepCheckDistance = 0.04f;
@@ -80,8 +83,8 @@ public class PlayerController2D : MonoBehaviour
         [EndIf]
     
     [Header("Wall Slide")]
-    [SerializeField] private bool canWallSlide = true;
-        [ShowIf("canWallSlide")]
+    [SerializeField] private bool wallSlideAbility = true;
+        [ShowIf("wallSlideAbility")]
         [SerializeField] private float maxWallSlideSpeed = 3f;
         [SerializeField] [Range(0, 1f)] private float wallSlideStickStrength = 0.3f;
         private bool isTouchingWall;
@@ -89,8 +92,8 @@ public class PlayerController2D : MonoBehaviour
         [EndIf]
 
     [Header("Dash")]
-    [SerializeField] private bool canDash = true;
-        [ShowIf("canDash")]
+    [SerializeField] private bool dashAbility = true;
+        [ShowIf("dashAbility")]
         [SerializeField] private float dashForce = 20f;
         [SerializeField] private int maxDashes = 1;
         [SerializeField] [Range(0.1f, 1f)] private float holdDashRequestTime = 0.1f; // For how long the dash buffer will hold
@@ -101,18 +104,10 @@ public class PlayerController2D : MonoBehaviour
         [EndIf]
 
     [Header("Fast Drop")]
-    [SerializeField] private bool canFastDrop = true;
-        [ShowIf("canFastDrop")]
+    [SerializeField] private bool fastDropAbility = true;
+        [ShowIf("fastDropAbility")]
         [SerializeField] [Range(0, 1f)] private float fastFallAcceleration = 0.1f;
         private bool isFastDropping;
-        [EndIf]
-
-    [Header("Coyote Jump")]
-    [SerializeField] private bool canCoyoteJump = true;
-        [ShowIf("canCoyoteJump")]
-        [SerializeField] [Range(0, 1f)] private float coyoteJumpBuffer = 0.1f;
-        private bool isCoyoteJumping;
-        private float coyoteJumpTime;
         [EndIf]
     [EndTab]
     
@@ -125,6 +120,7 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private Collider2D collFeet;
 
     [Header("VFX")]
+    [SerializeField] private ParticleSystem jumpEffect;
     [SerializeField] private ParticleSystem airJumpEffect;
     [SerializeField] private ParticleSystem runEffect;
     [SerializeField] private ParticleSystem deathEffect;
@@ -166,7 +162,6 @@ public class PlayerController2D : MonoBehaviour
         remainingDashes = maxDashes;
         deaths = 0;
         CheckpointManager2D.Instance.SetSpawnPoint(transform.position);
-
     }
 
 
@@ -200,7 +195,6 @@ public class PlayerController2D : MonoBehaviour
         HandleJump();
         HandleWallSlide();
         HandleDashing();
-        HandleCoyoteJump();
         HandleStepClimbing();
         HandleFastDrop();
     }
@@ -224,7 +218,7 @@ public class PlayerController2D : MonoBehaviour
         } else {
             if (isGrounded) { // On Ground
                 
-                if (canRun && runInput) { // Run
+                if (runAbility && runInput) { // Run
 
                     movementSpeed *= runSpeed;
                     movementAcceleration *= 1.5f;
@@ -240,7 +234,7 @@ public class PlayerController2D : MonoBehaviour
 
             } else if (!isGrounded) { // In air
 
-                if (canRun && wasRunning) { // Run
+                if (runAbility && wasRunning) { // Run
 
                     movementSpeed *= airRunSpeed;
                     movementAcceleration /= 1.5f;
@@ -269,7 +263,7 @@ public class PlayerController2D : MonoBehaviour
 
     private void HandleFastDrop() {
 
-        if (!canFastDrop) return;
+        if (!fastDropAbility) return;
         if (isGrounded && !atMaxFallSpeed) return;
 
         if (verticalInput < 0) {isFastDropping = true;} else {isFastDropping = false;}
@@ -283,7 +277,7 @@ public class PlayerController2D : MonoBehaviour
     private void HandleDashing() {
 
 
-        if (!canDash) return; // Return if not allowed to dash
+        if (!dashAbility) return; // Return if not allowed to dash
         if (isGrounded) { remainingDashes = maxDashes; } // Reset dashes when on ground
 
         if (dashRequested && remainingDashes > 0) {
@@ -307,7 +301,7 @@ public class PlayerController2D : MonoBehaviour
 
     private void HandleStepClimbing()
     {
-        if (!autoClimbSteps) return; // Only check for steps can climb steps
+        if (!autoClimbStepsAbility) return; // Only check for steps can climb steps
         if (!isGrounded) return; // Only check for steps when grounded
 
         Vector2 moveDirection = new Vector2(rigidBody.velocity.x, 0).normalized;
@@ -332,65 +326,11 @@ public class PlayerController2D : MonoBehaviour
         } 
     }
 
-    private void HandleJump() {
-
-        if (jumpRequested) {
-
-            if (holdJumpTimer > holdJumpBuffer) { // Jump buffer
-
-                jumpRequested = false;
-                return;
-            }
-
-            if (isGrounded || isCoyoteJumping) { // Jump on ground or coyote jumping
-
-                // jump
-                rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
-                jumpRequested = false;
-                if (jumpSfx) {jumpSfx.Play();}
-
-                // Reset coyote jump
-                coyoteJumpTime = 0;
-                isCoyoteJumping = false;
-                
-            }
-            else { // Air jump
-                if (remainingAirJumps > 0) {
-                    rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
-                    remainingAirJumps--;
-                    jumpRequested = false;
-                    if (airJumpEffect) {airJumpEffect.Play();}
-                    if (jumpSfx) {jumpSfx.Play();}
-                }
-            }
-        }
-
-        if (isGrounded) { // Reset air jumps when on ground
-            remainingAirJumps = maxAirJumps;
-        }
-        
-    }
-
-
-    private void HandleCoyoteJump() {
-
-        if (!canCoyoteJump) return;
-
-        if (isGrounded) { // Reset coyote jump when grounded
-
-            coyoteJumpTime = 0;
-            isCoyoteJumping = false;
-
-        } else { // Start coyote jump timer
-
-
-        } 
-    }
 
 
     private void HandleWallSlide() {
 
-        if (canWallSlide && isTouchingWall && !isGrounded && rigidBody.velocity.y < 0) {
+        if (wallSlideAbility && isTouchingWall && !isGrounded && rigidBody.velocity.y < 0) {
             isWallSliding = true;
         } else {
             isWallSliding = false;
@@ -411,6 +351,63 @@ public class PlayerController2D : MonoBehaviour
 
     #endregion Movement functions
 
+
+    //------------------------------------
+    #region Jump function
+    private void HandleJump() {
+
+        if (jumpRequested) {
+
+            if (holdJumpTimer > holdJumpBuffer) { // Jump buffer
+
+                jumpRequested = false;
+                return;
+            }
+
+            if (isGrounded || canCoyoteJump) { // Jump on ground or coyote jumping
+
+                // jump
+                rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
+                jumpRequested = false;
+
+                // Play effects
+                if (jumpEffect) {jumpEffect.Play();}
+                if (jumpSfx) {jumpSfx.Play();}
+
+                // Reset coyote jump
+                coyoteJumpTime = 0;
+                canCoyoteJump = false;
+                
+            }
+            else { // Air jump
+                if (remainingAirJumps > 0) {
+
+                    // Jump
+                    rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
+                    jumpRequested = false;
+                    remainingAirJumps--;
+                    
+                    // Play effects
+                    if (airJumpEffect) {airJumpEffect.Play();}
+                    if (jumpSfx) {jumpSfx.Play();}
+                }
+            }
+        }
+
+
+        if (isGrounded ) { 
+            
+            // Reset air jumps when on ground
+            remainingAirJumps = maxAirJumps;
+
+            // Reset coyote jump when grounded
+            coyoteJumpTime = coyoteJumpBuffer;
+            canCoyoteJump = true;
+        }
+
+        
+    }
+    #endregion Jump function
 
     //------------------------------------
     #region Gravity function
@@ -569,7 +566,7 @@ public class PlayerController2D : MonoBehaviour
         verticalInput = Input.GetAxis("Vertical");
 
         // Check for run input
-        if (canRun) {runInput = Input.GetButton("Run");}
+        if (runAbility) {runInput = Input.GetButton("Run");}
 
         // Set jumpRequested if Jump button is pressed
         if (Input.GetButtonDown("Jump"))
@@ -579,7 +576,7 @@ public class PlayerController2D : MonoBehaviour
         }
 
         // Check for dash input
-        if (canDash && Input.GetButtonDown("Dash")) {
+        if (dashAbility && Input.GetButtonDown("Dash")) {
 
             dashRequested = true;
             isDashing = true;
@@ -671,7 +668,7 @@ public class PlayerController2D : MonoBehaviour
 
     private void CountTimers() {
 
-        // Jump buffer time
+        // Jump buffer timer
         if (holdJumpTimer <= holdJumpBuffer) {
 
             holdJumpTimer += Time.deltaTime;
@@ -693,17 +690,14 @@ public class PlayerController2D : MonoBehaviour
             }
         }
 
-        // Coyote jump timing
-        if (!isGrounded)
-        {
-            coyoteJumpTime += Time.deltaTime;
-            if (coyoteJumpTime <= coyoteJumpBuffer)
+        // Coyote jump timer
+        if (canCoyoteJump && !isGrounded) {
+
+            coyoteJumpTime -= Time.deltaTime;
+
+            if (coyoteJumpTime <= 0)
             {
-                isCoyoteJumping = true;
-            }
-            else
-            {
-                isCoyoteJumping = false;
+                canCoyoteJump = false;
             }
         }
 
@@ -734,7 +728,7 @@ public class PlayerController2D : MonoBehaviour
         debugStringBuilder.AppendFormat("Dashing: {0}\n", isDashing);
         debugStringBuilder.AppendFormat("Wall Sliding: {0}\n", isWallSliding);
         debugStringBuilder.AppendFormat("Fast Dropping: {0}\n", isFastDropping);
-        debugStringBuilder.AppendFormat("Coyote Jumping: {0} ({1:0.0} / {2:0.0})\n", isCoyoteJumping,coyoteJumpTime,coyoteJumpBuffer);
+        debugStringBuilder.AppendFormat("Coyote Jumping: {0} ({1:0.0} / {2:0.0})\n", canCoyoteJump,coyoteJumpTime,coyoteJumpBuffer);
         debugStringBuilder.AppendFormat("Fast Falling: {0}\n", isFastFalling);
         debugStringBuilder.AppendFormat("At Max Fall Speed: {0}\n", atMaxFallSpeed);
 
