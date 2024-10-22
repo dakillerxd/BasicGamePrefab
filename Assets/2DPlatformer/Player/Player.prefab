@@ -164,7 +164,9 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 64
   wallSlideAbility: 1
-  maxWallSlideSpeed: 2
+  wallSlideSpeed: 2
+  maxWallSlideSpeed: 3
+  WallSlideSpeedAcceleration: 1
   wallSlideStickStrength: 0.3
   wallCheckDistance: 0.02
   isWallSliding: 0

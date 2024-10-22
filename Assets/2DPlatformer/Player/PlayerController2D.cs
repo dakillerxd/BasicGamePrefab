@@ -41,7 +41,7 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private float jumpForce = 4f;
     [SerializeField] [Range(0, 5f)] private int maxJumps = 2;
     [SerializeField] [Range(0.1f, 1f)] private float holdJumpBuffer = 0.2f; // For how long the jump buffer will hold
-    [SerializeField] [Range(0, 2f)] private float coyoteJumpBuffer = 0.1f;
+    [SerializeField] [Range(0, 2f)] private float coyoteJumpBuffer = 0.1f; // For how long the coyote buffer will hold
     [SerializeField] private LayerMask groundLayer;
     [HideInInspector] public bool isGrounded;
     private bool jumpRequested;
@@ -83,6 +83,7 @@ public class PlayerController2D : MonoBehaviour
     
     [Header("Wall Slide")]
     [SerializeField] private bool wallSlideAbility = true;
+    [SerializeField] private float wallSlideSpeed = 2f;
     [SerializeField] private float maxWallSlideSpeed = 3f;
     [SerializeField] [Range(0, 1f)] private float wallSlideStickStrength = 0.3f;
     [SerializeField] [Range(0, 3f)] private float wallCheckDistance = 1;
@@ -334,30 +335,42 @@ public class PlayerController2D : MonoBehaviour
 
     private void HandleWallSlide() {
 
-        if (wallSlideAbility && isTouchingWall && !isGrounded && rigidBody.velocity.y < 0) {
+        if (wallSlideAbility && isTouchingWall && !isGrounded && rigidBody.velocity.y < 0) { // Check if wall sliding
             isWallSliding = true;
         } else {
             isWallSliding = false;
         }
 
-        if (isWallSliding) { // Cap slide speed
+        if (isWallSliding) { 
 
-            if (isTouchingWallOnLeft && !isFacingRight) {
+            // Make the player face the opposite direction from the wall
+            if (isTouchingWallOnLeft && !isFacingRight) { 
                 FlipPlayer("Right");
             } else if (isTouchingWallOnRight && isFacingRight) {
                 FlipPlayer("Left");
             }
 
+            // Set slide speed
+            float slideSpeed = wallSlideSpeed;
+            float maxSlideSpeed = maxWallSlideSpeed;
 
+            // Accelerate slide if fast dropping
             if (isFastDropping) {
-                rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, -maxWallSlideSpeed*1.5f);
-            } else {
-                rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, -maxWallSlideSpeed);
+                slideSpeed *= 1.5f;
+                maxSlideSpeed *= 1.5f;
             }
-            
-            float wallSlideSmoothing = 0.01f;
-            float newYVelocity = Mathf.Lerp(rigidBody.velocity.y, -maxWallSlideSpeed, wallSlideSmoothing * Time.fixedDeltaTime);
+
+
+            // Lerp the fall speed
+            float newYVelocity = Mathf.Lerp(rigidBody.velocity.y, -maxSlideSpeed, slideSpeed  * Time.fixedDeltaTime);
             rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, newYVelocity);
+
+            if (rigidBody.velocity.y < -maxSlideSpeed) { // Clamp fall speed
+
+                rigidBody.velocity = new Vector2(rigidBody.velocity.x, -maxSlideSpeed);
+
+            }
+
         }   
     }
 
@@ -603,7 +616,7 @@ public class PlayerController2D : MonoBehaviour
         {
             case "RespawnTrigger":
 
-                DamageHealth(maxFallDamage, false, "World");
+                RespawnFromCheckpoint();
 
                 break;
             case "Checkpoint":
@@ -650,6 +663,7 @@ public class PlayerController2D : MonoBehaviour
 
         // Reset stats/states
         TurnInvincible();
+        TurnStunLocked();
         deaths += 1;
         transform.position = position;
         rigidBody.velocity = new Vector2(0, 0);
