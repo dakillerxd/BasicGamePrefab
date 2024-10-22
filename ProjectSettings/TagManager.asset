@@ -8,6 +8,7 @@ TagManager:
   - Enemy
   - RespawnTrigger
   - Checkpoint
+  - Teleporter
   layers:
   - Default
   - TransparentFX

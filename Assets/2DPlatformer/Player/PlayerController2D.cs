@@ -48,7 +48,6 @@ public class PlayerController2D : MonoBehaviour
     private float holdJumpTimer = 0;
     private bool canCoyoteJump;
     private float coyoteJumpTime;
-    private bool wasGroundedLastFrame = false;
 
     [Header("Gravity")]
     [SerializeField] private float gravityForce = 9.8f;
@@ -542,6 +541,12 @@ public class PlayerController2D : MonoBehaviour
 
 
                 CheckpointManager2D.Instance.ActivateCheckpoint(collision.gameObject);
+                
+                break;
+            case "Teleporter":
+
+                Teleporter2D teleporter = collision.gameObject.GetComponent<Teleporter2D>();
+                teleporter.GoToSelectedLevel();
                 break;
         }
     }
@@ -554,7 +559,7 @@ public class PlayerController2D : MonoBehaviour
 
 
     //------------------------------------
-    #region  Checkpoint functions
+    #region Health/Checkpoint functions
     
 
     [Button] private void RespawnFromCheckpoint() {
@@ -571,44 +576,9 @@ public class PlayerController2D : MonoBehaviour
         Respawn(CheckpointManager2D.Instance.playerSpawnPoint);
     }
     
-    #endregion Checkpoint functions
-
-
-    //------------------------------------
-    #region Other functions
-
-    private void CheckForInput() {
-
-        // Check for horizontal input
-        horizontalInput = Input.GetAxis("Horizontal");
-
-        // Check for vertical input
-        verticalInput = Input.GetAxis("Vertical");
-
-        // Check for run input
-        if (runAbility) {runInput = Input.GetButton("Run");}
-
-        // Set jumpRequested if Jump button is pressed
-        if (Input.GetButtonDown("Jump"))
-        {
-            jumpRequested = true;
-            holdJumpTimer = 0f;
-        }
-
-        // Check for dash input
-        if (dashAbility && Input.GetButtonDown("Dash")) {
-
-            dashRequested = true;
-            isDashing = true;
-            dashBufferTimer = 0f;
-        }
-
-
-    }
-
+    
     private void Respawn(Vector2 position) {
 
-        
         // Reset stats/states
         TurnInvincible();
         deaths += 1;
@@ -639,19 +609,10 @@ public class PlayerController2D : MonoBehaviour
             Debug.Log("Damaged by: " + cause);
         } 
 
-        if (currentHealth <= 0) {
-
-            if (deathEffect) {deathEffect.Play();}
-            if (deathSfx) {deathSfx.Play();}
-
-            Debug.Log("Death by: " + cause);
-
-            RespawnFromCheckpoint();
-        }
+        CheckIfDead(cause);
     }
 
-    private void DamageHealthAndPush(int damage ,float pushStrengthMultiplier , Vector2 pushDir , bool setInvincible, string cause = "" )
-    {
+    private void DamageHealthAndPush(int damage ,float pushStrengthMultiplier , Vector2 pushDir , bool setInvincible, string cause = "" ) {
 
         if (currentHealth > 0 && !isInvincible) {
             
@@ -661,6 +622,11 @@ public class PlayerController2D : MonoBehaviour
             Debug.Log("Damaged by: " + cause);
         } 
 
+        CheckIfDead(cause);
+    }
+
+    private void CheckIfDead(string cause = "") {
+
         if (currentHealth <= 0) {
 
             if (deathEffect) {deathEffect.Play();}
@@ -671,7 +637,6 @@ public class PlayerController2D : MonoBehaviour
             RespawnFromCheckpoint();
         }
     }
-
     private void TurnInvincible() {
 
         isInvincible = true;
@@ -682,6 +647,41 @@ public class PlayerController2D : MonoBehaviour
 
         isInvincible = false;
         invincibilityTimer = 0f;
+    }
+
+    #endregion Health/Checkpoint functions
+
+    //------------------------------------
+
+    #region Other functions
+
+    private void CheckForInput() {
+
+        // Check for horizontal input
+        horizontalInput = Input.GetAxis("Horizontal");
+
+        // Check for vertical input
+        verticalInput = Input.GetAxis("Vertical");
+
+        // Check for run input
+        if (runAbility) {runInput = Input.GetButton("Run");}
+
+        // Set jumpRequested if Jump button is pressed
+        if (Input.GetButtonDown("Jump"))
+        {
+            jumpRequested = true;
+            holdJumpTimer = 0f;
+        }
+
+        // Check for dash input
+        if (dashAbility && Input.GetButtonDown("Dash")) {
+
+            dashRequested = true;
+            isDashing = true;
+            dashBufferTimer = 0f;
+        }
+
+
     }
 
     private void ControlSprite() {
