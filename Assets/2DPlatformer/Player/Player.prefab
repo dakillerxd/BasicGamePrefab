@@ -167,7 +167,11 @@ MonoBehaviour:
   wallSlideAbility: 1
   maxWallSlideSpeed: 3
   wallSlideStickStrength: 0.3
+  wallCheckDistance: 0.02
   isWallSliding: 0
+  wallJumpAbility: 1
+  wallJumpVerticalForce: 4
+  wallJumpHorizontalForce: 15
   dashAbility: 1
   dashForce: 20
   maxDashes: 1

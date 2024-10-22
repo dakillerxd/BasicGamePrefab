@@ -4,6 +4,7 @@ using TMPro;
 using System;
 using UnityEngine.UI;
 using System.Text;
+using UnityEngine.XR;
 
 public class PlayerController2D : MonoBehaviour
 {
@@ -68,49 +69,47 @@ public class PlayerController2D : MonoBehaviour
     [Tab("Player Abilities")]
     [Header("Running")]
     [SerializeField] private bool runAbility = true;
-        [ShowIf("runAbility")] 
-        [SerializeField] private float runSpeed = 5f;
-        [SerializeField] private float airRunSpeed = 6f; 
-        private bool runInput;
-        private bool wasRunning;
-        [EndIf]
+    [SerializeField] private float runSpeed = 5f;
+    [SerializeField] private float airRunSpeed = 6f; 
+    private bool runInput;
+    private bool wasRunning;
 
     [Header("Climb Steps")]
     [SerializeField] private bool autoClimbStepsAbility = true;
-        [ShowIf("autoClimbStepsAbility")]
-        [SerializeField] [Range(0, 1f)] private float stepHeight = 0.12f;
-        [SerializeField] [Range(0, 1f)] private float stepWidth = 0.2f;
-        [SerializeField] [Range(0, 1f)] private float stepCheckDistance = 0.04f;
-        [SerializeField] private LayerMask stepLayer;
-        [EndIf]
+    [SerializeField] [Range(0, 1f)] private float stepHeight = 0.12f;
+    [SerializeField] [Range(0, 1f)] private float stepWidth = 0.2f;
+    [SerializeField] [Range(0, 1f)] private float stepCheckDistance = 0.04f;
+    [SerializeField] private LayerMask stepLayer;
     
     [Header("Wall Slide")]
     [SerializeField] private bool wallSlideAbility = true;
-        [ShowIf("wallSlideAbility")]
-        [SerializeField] private float maxWallSlideSpeed = 3f;
-        [SerializeField] [Range(0, 1f)] private float wallSlideStickStrength = 0.3f;
-        private bool isTouchingWall;
-        [HideInInspector] public bool isWallSliding;
-        [EndIf]
+    [SerializeField] private float maxWallSlideSpeed = 3f;
+    [SerializeField] [Range(0, 1f)] private float wallSlideStickStrength = 0.3f;
+    [SerializeField] [Range(0, 3f)] private float wallCheckDistance = 1;
+    private bool isTouchingWall;
+    private bool isTouchingWallOnRight;
+    private bool isTouchingWallOnLeft;
+    [HideInInspector] public bool isWallSliding;
+
+    [Header("Wall Jump")]
+    [SerializeField] private bool wallJumpAbility = true;
+    [SerializeField] private float wallJumpVerticalForce = 3f;
+    [SerializeField] private float wallJumpHorizontalForce = 4f;
 
     [Header("Dash")]
     [SerializeField] private bool dashAbility = true;
-        [ShowIf("dashAbility")]
-        [SerializeField] private float dashForce = 20f;
-        [SerializeField] private int maxDashes = 1;
-        [SerializeField] [Range(0.1f, 1f)] private float holdDashRequestTime = 0.1f; // For how long the dash buffer will hold
-        private int remainingDashes;
-        private bool dashRequested;
-        private bool isDashing;
-        private float dashBufferTimer = 0;
-        [EndIf]
+    [SerializeField] private float dashForce = 20f;
+    [SerializeField] private int maxDashes = 1;
+    [SerializeField] [Range(0.1f, 1f)] private float holdDashRequestTime = 0.1f; // For how long the dash buffer will hold
+    private int remainingDashes;
+    private bool dashRequested;
+    private bool isDashing;
+    private float dashBufferTimer = 0;
 
     [Header("Fast Drop")]
     [SerializeField] private bool fastDropAbility = true;
-        [ShowIf("fastDropAbility")]
-        [SerializeField] [Range(0, 1f)] private float fastFallAcceleration = 0.1f;
-        private bool isFastDropping;
-        [EndIf]
+    [SerializeField] [Range(0, 1f)] private float fastFallAcceleration = 0.1f;
+    private bool isFastDropping;
     [EndTab]
     
     // ----------------------------------------------------------------------
@@ -177,16 +176,8 @@ public class PlayerController2D : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.R)) { RespawnFromCheckpoint();}
         if (Input.GetKeyDown(KeyCode.F)) { CameraController2D.Instance.ShakeCamera(4,0.5f);}
-
-        if (debugText) {
-            debugText.enabled = showDebugText;
-            if (showDebugText) { UpdateDebugText(); }
-        }
-
-        if (fpsText) {
-            fpsText.enabled = showFpsText;
-            if (showFpsText) { UpdateFpsText(); }
-        }
+        UpdateDebugText(); 
+        UpdateFpsText();
     }
 
 
@@ -197,6 +188,7 @@ public class PlayerController2D : MonoBehaviour
         HandleMovement();
         HandleJump();
         HandleWallSlide();
+        HandleWallJump();
         HandleDashing();
         HandleStepClimbing();
         HandleFastDrop();
@@ -236,6 +228,8 @@ public class PlayerController2D : MonoBehaviour
                 }
 
             } else if (!isGrounded) { // In air
+
+                if (isTouchingWall) { wasRunning = false;}
 
                 if (runAbility && wasRunning) { // Run
 
@@ -281,7 +275,6 @@ public class PlayerController2D : MonoBehaviour
 
 
         if (!dashAbility) return; // Return if not allowed to dash
-        if (isGrounded) { remainingDashes = maxDashes; } // Reset dashes when on ground
 
         if (dashRequested && remainingDashes > 0) {
 
@@ -299,6 +292,9 @@ public class PlayerController2D : MonoBehaviour
 
             isDashing = false;
         }
+
+
+        if (isGrounded) { remainingDashes = maxDashes; } // Reset dashes when on ground
     }
 
 
@@ -341,8 +337,14 @@ public class PlayerController2D : MonoBehaviour
 
         if (isWallSliding) { // Cap slide speed
 
-            if (isFastDropping) {
+            if (isTouchingWallOnLeft && !isFacingRight) {
+                FlipPlayer("Right");
+            } else if (isTouchingWallOnRight && isFacingRight) {
+                FlipPlayer("Left");
+            }
 
+
+            if (isFastDropping) {
                 rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, -maxWallSlideSpeed*1.5f);
             } else {
                 rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, -maxWallSlideSpeed);
@@ -351,6 +353,7 @@ public class PlayerController2D : MonoBehaviour
             // rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, Mathf.Lerp(rigidBody.velocity.y, -maxWallSlideSpeed, 2f * Time.fixedDeltaTime));
         }   
     }
+
 
     #endregion Movement functions
 
@@ -367,10 +370,13 @@ public class PlayerController2D : MonoBehaviour
             
             if (isGrounded || canCoyoteJump) { // Ground / Coyote jump
                 ExecuteJump(1);
-            } else if (!(isGrounded && canCoyoteJump) && remainingJumps > 1) { // Extra jump after coyote time passed
+                Debug.Log("Jump1");
+            } else if (!(isGrounded && canCoyoteJump )&& !isTouchingWall && remainingJumps > 1) { // Extra jump after coyote time passed
                 ExecuteJump(2);
-            } else if (!(isGrounded && canCoyoteJump) && remainingJumps > 0) { // Extra jumps
+                Debug.Log("Jump2");
+            } else if (!(isGrounded && canCoyoteJump  && isJumping)&& !isTouchingWall && remainingJumps > 0) { // Extra jumps
                 ExecuteJump(1);
+                Debug.Log("Jump3");
             }
         }
 
@@ -381,26 +387,6 @@ public class PlayerController2D : MonoBehaviour
         
         if (!isGrounded && rigidBody.velocity.y <= 0) { // Reset jump state
             isJumping = false;
-        }
-
-        // Debug.Log("Jump: " + isJumping);
-    }
-
-    private void CoyoteTimeCheck() {
-
-        // Reset coyote jump
-        if (isGrounded) {
-            canCoyoteJump = true;
-            coyoteJumpTime = coyoteJumpBuffer;
-        }
-
-        // Update coyote time
-        if (canCoyoteJump) {
-            if (coyoteJumpTime > 0) {
-                coyoteJumpTime -= Time.deltaTime;
-            } else {
-                canCoyoteJump = false;
-            }
         }
     }
 
@@ -424,6 +410,74 @@ public class PlayerController2D : MonoBehaviour
         canCoyoteJump = false;
 
     }
+
+
+    private void HandleWallJump () {
+
+        if (!wallJumpAbility) return;
+
+        if (jumpRequested) {
+            if (holdJumpTimer > holdJumpBuffer) {
+                jumpRequested = false;
+                return;
+            }
+            
+            if (!isGrounded && isTouchingWallOnRight) { 
+                ExecuteWallJump("Left");
+                
+            } else if (!isGrounded && isTouchingWallOnLeft) {
+                ExecuteWallJump("Right");
+            }
+        }
+
+
+        if (!isGrounded && isTouchingWall) { remainingDashes = maxDashes; } // Reset dashes
+
+        if (!isGrounded && isTouchingWall) { // Reset jumps
+            remainingJumps = maxJumps;
+        }
+    }
+
+    private void ExecuteWallJump(string side) {
+
+        // Play effects
+        if (airJumpEffect) airJumpEffect.Play();
+
+        // Jump
+        if (side == "Right") {
+            rigidBody.velocity = new Vector2(wallJumpHorizontalForce, wallJumpVerticalForce);
+            FlipPlayer("Right");
+        } else if (side == "Left") {
+            rigidBody.velocity = new Vector2(-wallJumpHorizontalForce, wallJumpVerticalForce);
+            FlipPlayer("Left");
+        }
+        jumpRequested = false;
+        isJumping = true;
+        TurnStunLocked();
+
+        Debug.Log("Wall Jumped: " + side);
+
+    }
+
+    private void CoyoteTimeCheck() {
+
+        // Reset coyote jump
+        if (isGrounded) {
+            canCoyoteJump = true;
+            coyoteJumpTime = coyoteJumpBuffer;
+        }
+
+        // Update coyote time
+        if (canCoyoteJump) {
+            if (coyoteJumpTime > 0) {
+                coyoteJumpTime -= Time.deltaTime;
+            } else {
+                canCoyoteJump = false;
+            }
+        }
+    }
+
+
 
     #endregion Jump functions
 
@@ -503,6 +557,19 @@ public class PlayerController2D : MonoBehaviour
 
         // Check if the player is touching a wall
         isTouchingWall = collBody.IsTouchingLayers(groundLayer);
+
+        if (isTouchingWall) {
+
+            // Check collision with walls on the right
+            RaycastHit2D hitRight = Physics2D.Raycast(collBody.bounds.center, Vector2.right, collBody.bounds.extents.x + wallCheckDistance, groundLayer);
+            Debug.DrawRay(collBody.bounds.center, Vector2.right * (collBody.bounds.extents.x + wallCheckDistance), Color.red);
+            isTouchingWallOnRight = hitRight;
+
+            // Check collision with walls on the left
+            RaycastHit2D hitLeft = Physics2D.Raycast(collBody.bounds.center, Vector2.left, collBody.bounds.extents.x + wallCheckDistance, groundLayer);
+            Debug.DrawRay(collBody.bounds.center, Vector2.left * (collBody.bounds.extents.x + wallCheckDistance), Color.red);
+            isTouchingWallOnLeft = hitLeft;
+        }
     }
 
     private void OnCollisionEnter2D(Collision2D collision)
@@ -696,8 +763,6 @@ public class PlayerController2D : MonoBehaviour
             isDashing = true;
             dashBufferTimer = 0f;
         }
-
-
     }
 
     private void ControlSprite() {
@@ -717,13 +782,24 @@ public class PlayerController2D : MonoBehaviour
 
     private void CheckFaceDirection() {
 
+        if (isWallSliding) return; // Only flip the player based on input if he is not wall sliding
+
         if (horizontalInput > 0) {
-            isFacingRight = true;
+            FlipPlayer("Right");
         } else if (horizontalInput < 0) {
-            isFacingRight = false;
+            FlipPlayer("Left");
         }
     }
     
+    private void FlipPlayer(string side) {
+        
+        if (side == "Left") {
+            isFacingRight = false;
+        } else if (side == "Right") {
+            isFacingRight = true;
+        }
+    }
+
 
     private void CountTimers() {
 
@@ -774,52 +850,67 @@ public class PlayerController2D : MonoBehaviour
     private StringBuilder debugStringBuilder = new StringBuilder(256);
     private void UpdateDebugText() {
 
-        debugStringBuilder.Clear();
-        
-        debugStringBuilder.AppendFormat("Player:\n");
-        debugStringBuilder.AppendFormat("Health: {0} / {1}\n", currentHealth, maxHealth);
-        debugStringBuilder.AppendFormat("Deaths: {0}\n\n", deaths);
-        debugStringBuilder.AppendFormat("Jumps: {0} / {1}\n", remainingJumps, maxJumps);
-        debugStringBuilder.AppendFormat("Dashes: {0} / {1}\n", remainingDashes, maxDashes);
-        debugStringBuilder.AppendFormat("Velocity: {0}\n", rigidBody.velocity);
+        if (debugText) {
+            debugText.enabled = showDebugText;
+            if (showDebugText) {  
 
-        debugStringBuilder.AppendFormat("\nStates:\n");
-        debugStringBuilder.AppendFormat("Facing Right: {0}\n", isFacingRight);
-        debugStringBuilder.AppendFormat("Invincible: {0} ({1:0.0} / {2:0.0})\n", isInvincible, invincibilityTimer, invincibilityTime);
-        debugStringBuilder.AppendFormat("Stun Locked: {0} ({1:0.0} / {2:0.0})\n", isStunLocked, stunLockTimer, stunLockTime);
-        debugStringBuilder.AppendFormat("Grounded: {0}\n", isGrounded);
-        debugStringBuilder.AppendFormat("Running: {0}\n", wasRunning);
-        debugStringBuilder.AppendFormat("Dashing: {0}\n", isDashing);
-        debugStringBuilder.AppendFormat("Wall Sliding: {0}\n", isWallSliding);
-        debugStringBuilder.AppendFormat("Fast Dropping: {0}\n", isFastDropping);
-        debugStringBuilder.AppendFormat("Coyote Jumping: {0} ({1:0.0} / {2:0.0})\n",canCoyoteJump, coyoteJumpTime,coyoteJumpBuffer);
-        debugStringBuilder.AppendFormat("Jumping: {0}\n", isJumping);
-        debugStringBuilder.AppendFormat("Fast Falling: {0}\n", isFastFalling);
-        debugStringBuilder.AppendFormat("At Max Fall Speed: {0}\n", atMaxFallSpeed);
+                debugStringBuilder.Clear();
+                
+                debugStringBuilder.AppendFormat("Player:\n");
+                debugStringBuilder.AppendFormat("Health: {0} / {1}\n", currentHealth, maxHealth);
+                debugStringBuilder.AppendFormat("Deaths: {0}\n\n", deaths);
+                debugStringBuilder.AppendFormat("Jumps: {0} / {1}\n", remainingJumps, maxJumps);
+                debugStringBuilder.AppendFormat("Dashes: {0} / {1}\n", remainingDashes, maxDashes);
+                debugStringBuilder.AppendFormat("Velocity: {0}\n", rigidBody.velocity);
 
-        debugStringBuilder.AppendFormat("\nInputs:\n");
-        debugStringBuilder.AppendFormat($"H/V: {horizontalInput:F2} / {verticalInput:F2}\n");
-        debugStringBuilder.AppendFormat("Run: {0}\n", runInput);
-        debugStringBuilder.AppendFormat("Jump: {0}\n", Input.GetButtonDown("Jump"));
-        debugStringBuilder.AppendFormat("Dash: {0}\n", Input.GetButtonDown("Dash"));
+                debugStringBuilder.AppendFormat("\nStates:\n");
+                debugStringBuilder.AppendFormat("Facing Right: {0}\n", isFacingRight);
+                debugStringBuilder.AppendFormat("Invincible: {0} ({1:0.0} / {2:0.0})\n", isInvincible, invincibilityTimer, invincibilityTime);
+                debugStringBuilder.AppendFormat("Stun Locked: {0} ({1:0.0} / {2:0.0})\n", isStunLocked, stunLockTimer, stunLockTime);
+                debugStringBuilder.AppendFormat("Running: {0}\n", wasRunning);
+                debugStringBuilder.AppendFormat("Dashing: {0}\n", isDashing);
+                debugStringBuilder.AppendFormat("Wall Sliding: {0}\n", isWallSliding);
+                debugStringBuilder.AppendFormat("Fast Dropping: {0}\n", isFastDropping);
+                debugStringBuilder.AppendFormat("Coyote Jumping: {0} ({1:0.0} / {2:0.0})\n",canCoyoteJump, coyoteJumpTime,coyoteJumpBuffer);
+                debugStringBuilder.AppendFormat("Jumping: {0}\n", isJumping);
+                debugStringBuilder.AppendFormat("Fast Falling: {0}\n", isFastFalling);
+                debugStringBuilder.AppendFormat("At Max Fall Speed: {0}\n", atMaxFallSpeed);
 
-        debugText.text = debugStringBuilder.ToString();
+                debugStringBuilder.AppendFormat("\nCollisions:\n");
+                debugStringBuilder.AppendFormat("Grounded: {0}\n", isGrounded);
+                debugStringBuilder.AppendFormat("Touching Wall: {0}\n", isTouchingWall);
+                debugStringBuilder.AppendFormat("Wall on Right: {0}\n", isTouchingWallOnRight);
+                debugStringBuilder.AppendFormat("Wall on Left: {0}\n", isTouchingWallOnLeft);
+
+                debugStringBuilder.AppendFormat("\nInputs:\n");
+                debugStringBuilder.AppendFormat($"H/V: {horizontalInput:F2} / {verticalInput:F2}\n");
+                debugStringBuilder.AppendFormat("Run: {0}\n", runInput);
+                debugStringBuilder.AppendFormat("Jump: {0}\n", Input.GetButtonDown("Jump"));
+                debugStringBuilder.AppendFormat("Dash: {0}\n", Input.GetButtonDown("Dash"));
+
+                debugText.text = debugStringBuilder.ToString();
+            }
+        }
     }
 
     private StringBuilder fpsStringBuilder = new StringBuilder(256);
     private void UpdateFpsText() {
 
-        fpsStringBuilder.Clear();
+        if (fpsText) {
+            fpsText.enabled = showFpsText;
+            if (showFpsText) {  
 
-        float deltaTime = 0.0f;
-        deltaTime += Time.unscaledDeltaTime - deltaTime;
-        float fps = 1.0f / deltaTime;
-        fpsText.text = string.Format("{0:0.} FPS", fps);
-        fpsStringBuilder.AppendFormat("{0}\n", (int)fps);
+                fpsStringBuilder.Clear();
 
-        fpsText.text = fpsStringBuilder.ToString();
+                float deltaTime = 0.0f;
+                deltaTime += Time.unscaledDeltaTime - deltaTime;
+                float fps = 1.0f / deltaTime;
+                fpsText.text = string.Format("{0:0.} FPS", fps);
+                fpsStringBuilder.AppendFormat("{0}\n", (int)fps);
 
-        
+                fpsText.text = fpsStringBuilder.ToString();
+            }
+        }
     }
 
     #endif
