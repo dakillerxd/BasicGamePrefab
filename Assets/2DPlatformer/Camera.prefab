@@ -160,8 +160,8 @@ MonoBehaviour:
   targetOffset: {x: 0.5, y: 1, z: 0}
   isShaking: 0
   shakeOffset: {x: 0, y: 0, z: 0}
-  useBoundaries: 1
-  minXBoundary: -10
+  useBoundaries: 0
+  minXBoundary: -20
   maxXBoundary: 30
   minYBoundary: -20
   maxYBoundary: 15

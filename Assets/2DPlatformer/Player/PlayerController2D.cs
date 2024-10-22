@@ -4,7 +4,6 @@ using TMPro;
 using System;
 using UnityEngine.UI;
 using System.Text;
-using UnityEngine.XR;
 
 public class PlayerController2D : MonoBehaviour
 {
@@ -14,8 +13,8 @@ public class PlayerController2D : MonoBehaviour
     [Tab("Player Settings")]
     [Header("Health")]
     [SerializeField] private int maxHealth = 2;
-    [SerializeField] [Range(0, 1f)] private float stunLockTime = 0.1f;
-    [SerializeField] [Range(0, 1f)] private float invincibilityTime = 1f;
+    private float stunLockTime = 0.1f;
+    private float invincibilityTime = 1f;
     [SerializeField] private bool canTakeFallDamage = true;
         [ShowIf("canTakeFallDamage")]
         [SerializeField] private int maxFallDamage = 1;
@@ -34,8 +33,9 @@ public class PlayerController2D : MonoBehaviour
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 4f;
     [SerializeField] private float airMoveSpeed = 3f;
-    [SerializeField] [Range(0.1f, 2f)] private float moveAcceleration = 1f;
-    [SerializeField] [Range(0f, 2f)] private float moveDeceleration = 0.25f;
+    [SerializeField] private float moveAcceleration = 2f; // How fast the player gets to max speed
+    [SerializeField] private float groundFriction = 5f; // The higher the friction there is less resistance
+    [SerializeField] private float airFriction = 1f; // The higher the friction there is less resistance
 
     [Header("Jump")]
     [SerializeField] private float jumpForce = 4f;
@@ -52,8 +52,8 @@ public class PlayerController2D : MonoBehaviour
     private float coyoteJumpTime;
 
     [Header("Gravity")]
-    [SerializeField] private float gravityForce = 9.8f;
-    [SerializeField] [Range(0f, 10f)] private float fallMultiplier = 2.5f; // Gravity multiplayer when the payer is not jumping
+    [SerializeField] private float gravityForce = 0.5f;
+    [SerializeField] private float fallMultiplier = 4f; // Gravity multiplayer when the payer is falling
     [SerializeField] public float maxFallSpeed = 20f;
     [HideInInspector] public bool isFastFalling;
     [HideInInspector] public bool atMaxFallSpeed;
@@ -98,7 +98,7 @@ public class PlayerController2D : MonoBehaviour
 
     [Header("Dash")]
     [SerializeField] private bool dashAbility = true;
-    [SerializeField] private float dashForce = 20f;
+    [SerializeField] private float dashForce = 12f;
     [SerializeField] private int maxDashes = 1;
     [SerializeField] [Range(0.1f, 1f)] private float holdDashRequestTime = 0.1f; // For how long the dash buffer will hold
     private int remainingDashes;
@@ -199,15 +199,15 @@ public class PlayerController2D : MonoBehaviour
     #region Movement/Gravity functions
     private void HandleMovement() {
 
-        float movementSpeed = horizontalInput;
-        float movementAcceleration = moveAcceleration;
+        float speed = horizontalInput;
+        float acceleration = moveAcceleration;
 
         if (isWallSliding) { // Wall sliding
 
             if (horizontalInput < wallSlideStickStrength && horizontalInput > -wallSlideStickStrength) { 
 
-                movementSpeed = 0; 
-                movementAcceleration = 0;
+                speed = 0; 
+                acceleration = 0;
             }
             
         } else {
@@ -215,16 +215,13 @@ public class PlayerController2D : MonoBehaviour
                 
                 if (runAbility && runInput) { // Run
 
-                    movementSpeed *= runSpeed;
-                    movementAcceleration *= 1.5f;
+                    speed *= runSpeed;
                     wasRunning = true;
-                    if (runEffect && runEffect.isStopped) {runEffect.Play();}
 
                 } else { // Walk
 
-                    movementSpeed *= moveSpeed;
+                    speed *= moveSpeed;
                     wasRunning = false;
-                    if (runEffect && runEffect.isPlaying) {runEffect.Stop();}
                 }
 
             } else if (!isGrounded) { // In air
@@ -233,28 +230,36 @@ public class PlayerController2D : MonoBehaviour
 
                 if (runAbility && wasRunning) { // Run
 
-                    movementSpeed *= airRunSpeed;
-                    movementAcceleration /= 1.5f;
+                    speed *= airRunSpeed;
 
                 } else { // Walk
 
-                    movementSpeed *= airMoveSpeed;
-                    movementAcceleration /= 1.5f;
+                    speed *= airMoveSpeed;
                     wasRunning = false;
-                    if (runEffect && runEffect.isPlaying) {runEffect.Stop();}
                 }
             } 
         }
 
 
-
-        if (horizontalInput == 0) { // If the player is not moving use decelerate value
-
-            movementAcceleration = moveDeceleration;
+        // Play run effect
+        if (runEffect) {
+            if (runAbility && runInput && isGrounded)
+            {
+                if (runEffect.isStopped) runEffect.Play();
+            }
+            else
+            {
+                if (runEffect.isPlaying) runEffect.Stop();
+            }
         }
 
+        // Apply friction
+        if (isGrounded) {acceleration *= groundFriction;} else {acceleration *= airFriction;}
+
         // Lerp the player movement
-        rigidBody.velocity = new Vector2 ( Mathf.Lerp(rigidBody.velocity.x, movementSpeed, movementAcceleration), rigidBody.velocity.y);
+        float newXVelocity = Mathf.Lerp(rigidBody.velocity.x, speed, acceleration * Time.fixedDeltaTime);
+        rigidBody.velocity = new Vector2(newXVelocity, rigidBody.velocity.y);
+
 
     }
 
@@ -267,7 +272,7 @@ public class PlayerController2D : MonoBehaviour
 
         if (isFastDropping) {
 
-            rigidBody.velocity = new Vector2(rigidBody.velocity.x, rigidBody.velocity.y - fastFallAcceleration);
+            rigidBody.velocity = new Vector2(rigidBody.velocity.x, rigidBody.velocity.y - fastFallAcceleration * Time.fixedDeltaTime);
         }
     }
 
@@ -350,7 +355,9 @@ public class PlayerController2D : MonoBehaviour
                 rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, -maxWallSlideSpeed);
             }
             
-            // rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, Mathf.Lerp(rigidBody.velocity.y, -maxWallSlideSpeed, 2f * Time.fixedDeltaTime));
+            float wallSlideSmoothing = 0.01f;
+            float newYVelocity = Mathf.Lerp(rigidBody.velocity.y, -maxWallSlideSpeed, wallSlideSmoothing * Time.fixedDeltaTime);
+            rigidBody.velocity = new Vector2 ( rigidBody.velocity.x, newYVelocity);
         }   
     }
 
@@ -370,13 +377,10 @@ public class PlayerController2D : MonoBehaviour
             
             if (isGrounded || canCoyoteJump) { // Ground / Coyote jump
                 ExecuteJump(1);
-                Debug.Log("Jump1");
             } else if (!(isGrounded && canCoyoteJump )&& !isTouchingWall && remainingJumps > 1) { // Extra jump after coyote time passed
                 ExecuteJump(2);
-                Debug.Log("Jump2");
             } else if (!(isGrounded && canCoyoteJump  && isJumping)&& !isTouchingWall && remainingJumps > 0) { // Extra jumps
                 ExecuteJump(1);
-                Debug.Log("Jump3");
             }
         }
 
@@ -408,7 +412,6 @@ public class PlayerController2D : MonoBehaviour
         // Reset coyote state
         coyoteJumpTime = 0;
         canCoyoteJump = false;
-
     }
 
 
@@ -454,9 +457,6 @@ public class PlayerController2D : MonoBehaviour
         jumpRequested = false;
         isJumping = true;
         TurnStunLocked();
-
-        Debug.Log("Wall Jumped: " + side);
-
     }
 
     private void CoyoteTimeCheck() {
@@ -485,7 +485,7 @@ public class PlayerController2D : MonoBehaviour
     #region Gravity function
     private void HandleGravity()
     {
-        if (!isGrounded) // Apply gravity when not grounded
+        if (!isGrounded && !isWallSliding) // Apply gravity when not grounded
         {
             // Apply gravity and apply the fall multiplier if the player is falling
             float gravityMultiplier = rigidBody.velocity.y > 0 ? 1f : fallMultiplier; 
@@ -513,7 +513,8 @@ public class PlayerController2D : MonoBehaviour
 
         } else { // Apply gravity when grounded
 
-            rigidBody.velocity += 0.1f * Time.fixedDeltaTime * Vector2.down;
+            const float groundGravityForce = 0.1f;
+            rigidBody.velocity += groundGravityForce * Time.fixedDeltaTime * Vector2.down;
 
             // Check for landing at fast falling
             if (isFastFalling) {

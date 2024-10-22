@@ -128,8 +128,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 2
-  stunLockTime: 0.1
-  invincibilityTime: 0.3
   canTakeFallDamage: 0
   maxFallDamage: 1
   horizontalInput: 0
@@ -137,8 +135,9 @@ MonoBehaviour:
   isFacingRight: 1
   moveSpeed: 4
   airMoveSpeed: 3
-  moveAcceleration: 0.5
-  moveDeceleration: 0.25
+  moveAcceleration: 2
+  groundFriction: 5
+  airFriction: 1
   jumpForce: 4
   maxJumps: 2
   holdJumpBuffer: 0.2
@@ -165,19 +164,19 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 64
   wallSlideAbility: 1
-  maxWallSlideSpeed: 3
+  maxWallSlideSpeed: 2
   wallSlideStickStrength: 0.3
   wallCheckDistance: 0.02
   isWallSliding: 0
   wallJumpAbility: 1
-  wallJumpVerticalForce: 4
-  wallJumpHorizontalForce: 15
+  wallJumpVerticalForce: 5
+  wallJumpHorizontalForce: 4
   dashAbility: 1
-  dashForce: 20
+  dashForce: 12
   maxDashes: 1
   holdDashRequestTime: 0.1
   fastDropAbility: 1
-  fastFallAcceleration: 0.1
+  fastFallAcceleration: 0.2
   rigidBody: {fileID: 2783392023027556574}
   spriteRenderer: {fileID: 4017478420366802647}
   collBody: {fileID: 6793365586128216939}
