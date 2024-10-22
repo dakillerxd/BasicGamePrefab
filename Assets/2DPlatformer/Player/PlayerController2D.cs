@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using VInspector;
 using UnityEngine;
 using TMPro;
@@ -15,6 +13,7 @@ public class PlayerController2D : MonoBehaviour
     [Tab("Player Settings")]
     [Header("Health")]
     [SerializeField] private int maxHealth = 2;
+    [SerializeField] [Range(0, 1f)] private float stunLockTime = 0.1f;
     [SerializeField] [Range(0, 1f)] private float invincibilityTime = 1f;
     [SerializeField] private bool canTakeFallDamage = true;
         [ShowIf("canTakeFallDamage")]
@@ -25,6 +24,8 @@ public class PlayerController2D : MonoBehaviour
     private int deaths;
     private bool isInvincible;
     private float invincibilityTimer;
+    private bool isStunLocked;
+    private float stunLockTimer;
     [HideInInspector] public  float horizontalInput;
     [HideInInspector] public  float verticalInput;
     [HideInInspector] public bool isFacingRight = true;
@@ -541,7 +542,7 @@ public class PlayerController2D : MonoBehaviour
 
 
                 CheckpointManager2D.Instance.ActivateCheckpoint(collision.gameObject);
-                
+
                 break;
             case "Teleporter":
 
@@ -605,6 +606,7 @@ public class PlayerController2D : MonoBehaviour
         if (currentHealth > 0 && !isInvincible) {
             
             if (setInvincible) {TurnInvincible();}
+            TurnStunLocked();
             currentHealth -= damage;
             Debug.Log("Damaged by: " + cause);
         } 
@@ -616,8 +618,9 @@ public class PlayerController2D : MonoBehaviour
 
         if (currentHealth > 0 && !isInvincible) {
             
-            if (setInvincible) {TurnInvincible();}
             rigidBody.velocity = new Vector2(rigidBody.velocity.x + (pushDir.x * 15 * pushStrengthMultiplier), rigidBody.velocity.y + (pushDir.y * 2 * pushStrengthMultiplier));
+            if (setInvincible) {TurnInvincible();}
+            TurnStunLocked();
             currentHealth -= damage;
             Debug.Log("Damaged by: " + cause);
         } 
@@ -637,6 +640,17 @@ public class PlayerController2D : MonoBehaviour
             RespawnFromCheckpoint();
         }
     }
+    private void TurnStunLocked() {
+        isStunLocked = true;
+        stunLockTimer = 0f;
+    }
+
+    private void UnStuckLock() {
+        isStunLocked = false;
+        stunLockTimer = 0f;
+    
+    }
+
     private void TurnInvincible() {
 
         isInvincible = true;
@@ -656,6 +670,8 @@ public class PlayerController2D : MonoBehaviour
     #region Other functions
 
     private void CheckForInput() {
+
+        if (!CanMove()) return;
 
         // Check for horizontal input
         horizontalInput = Input.GetAxis("Horizontal");
@@ -733,9 +749,23 @@ public class PlayerController2D : MonoBehaviour
             }
         }
 
+        // StunLock timer
+        if (isStunLocked) {
+            stunLockTimer += Time.deltaTime;
 
+            if (stunLockTimer >= stunLockTime) {
+                UnStuckLock();
+            }
+        }
 
     }
+
+
+    private bool CanMove() {
+        return !isStunLocked && !isDashing;
+    }
+
+
     #endregion Other functions
     
     #region Debugging functions
@@ -755,7 +785,8 @@ public class PlayerController2D : MonoBehaviour
 
         debugStringBuilder.AppendFormat("\nStates:\n");
         debugStringBuilder.AppendFormat("Facing Right: {0}\n", isFacingRight);
-        debugStringBuilder.AppendFormat("Invincible: {0}\n", isInvincible);
+        debugStringBuilder.AppendFormat("Invincible: {0} ({1:0.0} / {2:0.0})\n", isInvincible, invincibilityTimer, invincibilityTime);
+        debugStringBuilder.AppendFormat("Stun Locked: {0} ({1:0.0} / {2:0.0})\n", isStunLocked, stunLockTimer, stunLockTime);
         debugStringBuilder.AppendFormat("Grounded: {0}\n", isGrounded);
         debugStringBuilder.AppendFormat("Running: {0}\n", wasRunning);
         debugStringBuilder.AppendFormat("Dashing: {0}\n", isDashing);

@@ -128,6 +128,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 2
+  stunLockTime: 0.1
   invincibilityTime: 0.3
   canTakeFallDamage: 0
   maxFallDamage: 1
