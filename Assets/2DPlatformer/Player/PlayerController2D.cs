@@ -25,8 +25,6 @@ public class PlayerController2D : MonoBehaviour
     private float invincibilityTime;
     private bool isStunLocked;
     private float stunLockTime;
-    [HideInInspector] public  float horizontalInput;
-    [HideInInspector] public  float verticalInput;
     [HideInInspector] public bool isFacingRight = true;
 
     [Header("Movement")]
@@ -41,19 +39,18 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private float variableJumpMaxHoldDuration = 0.3f; // How long the jump button can be held
     [SerializeField] [Range(0.1f, 1f)] private float variableJumpMultiplier = 0.5f; // Multiplier for jump cut height
     [SerializeField] [Range(0, 5f)] private int maxJumps = 2;
-    [SerializeField] [Range(0.1f, 1f)] private float holdJumpBuffer = 0.2f; // For how long the jump buffer will hold
+    [SerializeField] [Range(0.1f, 1f)] private float holdJumpDownBuffer = 0.2f; // For how long the jump buffer will hold
     [SerializeField] [Range(0, 2f)] private float coyoteJumpBuffer = 0.1f; // For how long the coyote buffer will hold
     [SerializeField] private LayerMask groundLayer;
     [HideInInspector] public bool isGrounded;
-    private bool jumpInputUp;
-    private bool jumpRequested;
     private bool isJumping;
-    private bool isJumpInputHeld;
+    private bool isJumpCut;
     private int remainingJumps;
-    private float holdJumpTimer = 0;
+    private float holdJumpDownTimer;
     private bool canCoyoteJump;
     private float coyoteJumpTime;
     private float variableJumpHeldDuration;
+    
 
     [Header("Gravity")]
     [SerializeField] private float gravityForce = 0.5f;
@@ -75,7 +72,6 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private bool runAbility = true;
     [SerializeField] private float runSpeed = 5f;
     [SerializeField] private float airRunSpeed = 6f; 
-    private bool runInput;
     private bool wasRunning;
 
     [Header("Climb Steps")]
@@ -107,7 +103,6 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private int maxDashes = 1;
     [SerializeField] [Range(0.1f, 1f)] private float holdDashRequestTime = 0.1f; // For how long the dash buffer will hold
     private int remainingDashes;
-    private bool dashRequested;
     private bool isDashing;
     private float dashBufferTimer = 0;
 
@@ -144,6 +139,20 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private TextMeshProUGUI fpsText;
     [EndTab]
 
+    // ----------------------------------------------------------------------
+
+    [Header("Input")]
+    [HideInInspector] public  float horizontalInput;
+    [HideInInspector] public  float verticalInput;
+    private bool jumpInputDownRequested;
+    private bool jumpInputUp;
+    private bool jumpInputHeld;
+    private bool dashRequested;
+    private bool runInput;
+
+
+
+
 
 
     private void Awake() {
@@ -158,7 +167,7 @@ public class PlayerController2D : MonoBehaviour
         }
 
         QualitySettings.vSyncCount = 0;
-        Application.targetFrameRate = 30;
+        Application.targetFrameRate = 120;
     }
  
 
@@ -386,25 +395,28 @@ public class PlayerController2D : MonoBehaviour
     #region Jump functions
     private void HandleJump() {
 
-        // Handle jump input timing
-        if (Input.GetButton("Jump") && isJumping) {
-            variableJumpHeldDuration += Time.fixedDeltaTime;
-            isJumpInputHeld = variableJumpHeldDuration < variableJumpMaxHoldDuration;
+        // Reset jump cut when starting a new jump
+        if (jumpInputDownRequested) {
+            isJumpCut = false;
         }
 
-        // Cut jump height if button is released early
-        if (jumpInputUp) {
+        
+        if (jumpInputUp && !isJumpCut) { 
+            
+            // Only Cut jump height if button is released early
             if (isJumping && rigidBody.velocity.y > 0) {
                 rigidBody.velocity = new Vector2(rigidBody.velocity.x, rigidBody.velocity.y * variableJumpMultiplier);
+                isJumpCut = true;
             }
-            isJumpInputHeld = false;
+            jumpInputHeld = false;
             variableJumpHeldDuration = 0;
         }
 
-        if (jumpRequested) { // Jump
 
-            if (holdJumpTimer > holdJumpBuffer) {
-                jumpRequested = false;
+        if (jumpInputDownRequested) { // Jump
+
+            if (holdJumpDownTimer > holdJumpDownBuffer) { // If past jump buffer then dont jump
+                jumpInputDownRequested = false;
                 return;
             }
             
@@ -417,13 +429,15 @@ public class PlayerController2D : MonoBehaviour
             }
         }
 
+
+
         if (isGrounded && !isJumping) { // Reset jumps
             remainingJumps = maxJumps;
+            isJumpCut = false;
         }
-
-        
         if (!isGrounded && rigidBody.velocity.y <= 0) { // Reset jump state
             isJumping = false;
+            isJumpCut = false;
         }
     }
 
@@ -438,10 +452,11 @@ public class PlayerController2D : MonoBehaviour
 
         // Jump
         rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
-        jumpRequested = false;
+        jumpInputDownRequested = false;
         remainingJumps -= jumpCost;
         isJumping = true;
-        isJumpInputHeld = true;
+        jumpInputHeld = true;
+        isJumpCut = false;
         variableJumpHeldDuration = 0;
 
         // Reset coyote state
@@ -454,9 +469,9 @@ public class PlayerController2D : MonoBehaviour
 
         if (!wallJumpAbility) return;
 
-        if (jumpRequested) {
-            if (holdJumpTimer > holdJumpBuffer) {
-                jumpRequested = false;
+        if (jumpInputDownRequested) {
+            if (holdJumpDownTimer > holdJumpDownBuffer) {
+                jumpInputDownRequested = false;
                 return;
             }
             
@@ -473,6 +488,7 @@ public class PlayerController2D : MonoBehaviour
 
         if (!isGrounded && isTouchingWall) { // Reset jumps
             remainingJumps = maxJumps;
+            variableJumpHeldDuration = 0;
         }
     }
 
@@ -489,7 +505,7 @@ public class PlayerController2D : MonoBehaviour
             rigidBody.velocity = new Vector2(-wallJumpHorizontalForce, wallJumpVerticalForce);
             FlipPlayer("Left");
         }
-        jumpRequested = false;
+        jumpInputDownRequested = false;
         variableJumpHeldDuration = 0;
         isJumping = true;
         TurnStunLocked();
@@ -702,7 +718,7 @@ public class PlayerController2D : MonoBehaviour
             CameraController2D.Instance.StopCameraShake();
         }
 
-        Debug.Log("Respawned, Deaths: " + deaths);
+        Debug.Log("Respawned");
     }
 
 
@@ -740,7 +756,7 @@ public class PlayerController2D : MonoBehaviour
             Debug.Log("Damaged by: " + cause);
         }
 
-        CheckIfDead();
+        CheckIfDead(cause);
 
     }
 
@@ -826,13 +842,14 @@ public class PlayerController2D : MonoBehaviour
 
 
             // Check for jump inputs
+            jumpInputHeld = Input.GetButton("Jump");
+            jumpInputUp = Input.GetButtonUp("Jump");
+
             if (Input.GetButtonDown("Jump")) {
-                jumpRequested = true;
-                holdJumpTimer = 0f;
+                jumpInputDownRequested = true;
+                holdJumpDownTimer = 0f;
             }
-            if (Input.GetButtonUp("Jump")) {
-                jumpInputUp = true;
-            }
+
             
             // Check for run input
             if (runAbility) {
@@ -854,12 +871,6 @@ public class PlayerController2D : MonoBehaviour
 
             horizontalInput = 0;
             verticalInput = 0;
-            jumpRequested = false;
-            holdJumpTimer = 0f;
-            variableJumpHeldDuration = 0;
-            runInput = false;
-            dashRequested = false;
-
         }
 
 
@@ -904,9 +915,15 @@ public class PlayerController2D : MonoBehaviour
     private void CountTimers() {
 
         // Jump buffer timer
-        if (holdJumpTimer <= holdJumpBuffer) {
+        if (holdJumpDownTimer <= holdJumpDownBuffer) {
 
-            holdJumpTimer += Time.deltaTime;
+            holdJumpDownTimer += Time.deltaTime;
+        }
+
+        // Variable jump timer
+        if (jumpInputHeld && variableJumpHeldDuration <= variableJumpMaxHoldDuration) {
+
+            variableJumpHeldDuration += Time.deltaTime;
         }
 
         // Dash buffer timer
@@ -988,7 +1005,9 @@ public class PlayerController2D : MonoBehaviour
                 deltaTime += Time.unscaledDeltaTime - deltaTime;
                 float fps = 1.0f / deltaTime;
                 fpsText.text = string.Format("{0:0.} FPS", fps);
-                fpsStringBuilder.AppendFormat("{0}\n", (int)fps);
+
+                fpsStringBuilder.AppendFormat("FPS: {0}\n", (int)fps);
+                fpsStringBuilder.AppendFormat("VSync: {0}\n", QualitySettings.vSyncCount);
 
                 fpsText.text = fpsStringBuilder.ToString();
             }
