@@ -38,17 +38,22 @@ public class PlayerController2D : MonoBehaviour
 
     [Header("Jump")]
     [SerializeField] private float jumpForce = 4f;
+    [SerializeField] private float variableJumpMaxHoldDuration = 0.3f; // How long the jump button can be held
+    [SerializeField] [Range(0.1f, 1f)] private float variableJumpMultiplier = 0.5f; // Multiplier for jump cut height
     [SerializeField] [Range(0, 5f)] private int maxJumps = 2;
     [SerializeField] [Range(0.1f, 1f)] private float holdJumpBuffer = 0.2f; // For how long the jump buffer will hold
     [SerializeField] [Range(0, 2f)] private float coyoteJumpBuffer = 0.1f; // For how long the coyote buffer will hold
     [SerializeField] private LayerMask groundLayer;
     [HideInInspector] public bool isGrounded;
+    private bool jumpInputUp;
     private bool jumpRequested;
     private bool isJumping;
+    private bool isJumpInputHeld;
     private int remainingJumps;
     private float holdJumpTimer = 0;
     private bool canCoyoteJump;
     private float coyoteJumpTime;
+    private float variableJumpHeldDuration;
 
     [Header("Gravity")]
     [SerializeField] private float gravityForce = 0.5f;
@@ -153,7 +158,7 @@ public class PlayerController2D : MonoBehaviour
         }
 
         QualitySettings.vSyncCount = 0;
-        Application.targetFrameRate = 120;
+        Application.targetFrameRate = 30;
     }
  
 
@@ -381,7 +386,23 @@ public class PlayerController2D : MonoBehaviour
     #region Jump functions
     private void HandleJump() {
 
-        if (jumpRequested) {
+        // Handle jump input timing
+        if (Input.GetButton("Jump") && isJumping) {
+            variableJumpHeldDuration += Time.fixedDeltaTime;
+            isJumpInputHeld = variableJumpHeldDuration < variableJumpMaxHoldDuration;
+        }
+
+        // Cut jump height if button is released early
+        if (jumpInputUp) {
+            if (isJumping && rigidBody.velocity.y > 0) {
+                rigidBody.velocity = new Vector2(rigidBody.velocity.x, rigidBody.velocity.y * variableJumpMultiplier);
+            }
+            isJumpInputHeld = false;
+            variableJumpHeldDuration = 0;
+        }
+
+        if (jumpRequested) { // Jump
+
             if (holdJumpTimer > holdJumpBuffer) {
                 jumpRequested = false;
                 return;
@@ -420,6 +441,8 @@ public class PlayerController2D : MonoBehaviour
         jumpRequested = false;
         remainingJumps -= jumpCost;
         isJumping = true;
+        isJumpInputHeld = true;
+        variableJumpHeldDuration = 0;
 
         // Reset coyote state
         coyoteJumpTime = 0;
@@ -467,6 +490,7 @@ public class PlayerController2D : MonoBehaviour
             FlipPlayer("Left");
         }
         jumpRequested = false;
+        variableJumpHeldDuration = 0;
         isJumping = true;
         TurnStunLocked();
     }
@@ -585,22 +609,24 @@ public class PlayerController2D : MonoBehaviour
         }
     }
 
-    private void OnCollisionEnter2D(Collision2D collision)
-    {
+    private void OnCollisionStay2D(Collision2D collision) {
+
         switch (collision.gameObject.tag)
         {
             case "Enemy":
 
                 Vector2 enemyNormal = collision.GetContact(0).normal;
-                DamageHealthAndPush(1, 1, enemyNormal, true, collision.gameObject.name);
+                Vector2 enemyPushForce = enemyNormal * 5f;
+                DamageHealthAndPush(1, enemyPushForce, true, collision.gameObject.name);
 
             break;
 
             case "Spike":
 
                 Vector2 spikeNormal = collision.GetContact(0).normal;
+                Vector2 spikePushForce = spikeNormal * 5f;
                 
-                DamageHealthAndPush(1, 2, spikeNormal, true, collision.gameObject.name);
+                DamageHealthAndPush(1, spikePushForce, true, collision.gameObject.name);
 
 
 
@@ -608,9 +634,8 @@ public class PlayerController2D : MonoBehaviour
         }
     }
 
+    private void OnTriggerEnter2D(Collider2D collision) {
 
-    private void OnTriggerEnter2D(Collider2D collision)
-    {
         switch (collision.gameObject.tag)
         {
             case "RespawnTrigger":
@@ -695,18 +720,28 @@ public class PlayerController2D : MonoBehaviour
         CheckIfDead(cause);
     }
 
-    private void DamageHealthAndPush(int damage ,float pushStrengthMultiplier , Vector2 pushDir , bool setInvincible, string cause = "" ) {
+    private void DamageHealthAndPush(int damage ,Vector2 pushForce , bool setInvincible, string cause = "" ) {
 
-        if (currentHealth > 0 && !isInvincible) {
+        if (currentHealth > 0 && !isInvincible)
+        {
+            // Reset current velocity before applying push
+            rigidBody.velocity = Vector2.zero;
             
-            rigidBody.velocity = new Vector2(rigidBody.velocity.x + (pushDir.x * 15 * pushStrengthMultiplier), rigidBody.velocity.y + (pushDir.y * 2 * pushStrengthMultiplier));
-            if (setInvincible) {TurnInvincible();}
+            // Apply a consistent impulse force
+            rigidBody.AddForce(pushForce, ForceMode2D.Impulse);
+            
+            // Clamp the resulting velocity to prevent excessive speed
+            float maxPushSpeed = 4f; // Adjust this value to control maximum push speed
+            rigidBody.velocity = Vector2.ClampMagnitude(rigidBody.velocity, maxPushSpeed);
+            
+            if (setInvincible) { TurnInvincible(); }
             TurnStunLocked();
             currentHealth -= damage;
             Debug.Log("Damaged by: " + cause);
-        } 
+        }
 
-        CheckIfDead(cause);
+        CheckIfDead();
+
     }
 
     private void CheckIfDead(string cause = "") {
@@ -781,7 +816,7 @@ public class PlayerController2D : MonoBehaviour
 
     private void CheckForInput() {
 
-        if (CanMove()) {
+        if (CanMove()) { // Only check for input if the player can move
 
             // Check for horizontal input
             horizontalInput = Input.GetAxis("Horizontal");
@@ -789,27 +824,42 @@ public class PlayerController2D : MonoBehaviour
             // Check for vertical input
             verticalInput = Input.GetAxis("Vertical");
 
-            // Check for run input
-            if (runAbility) {runInput = Input.GetButton("Run");}
 
-            // Set jumpRequested if Jump button is pressed
-            if (Input.GetButtonDown("Jump"))
-            {
+            // Check for jump inputs
+            if (Input.GetButtonDown("Jump")) {
                 jumpRequested = true;
                 holdJumpTimer = 0f;
+            }
+            if (Input.GetButtonUp("Jump")) {
+                jumpInputUp = true;
+            }
+            
+            // Check for run input
+            if (runAbility) {
+                runInput = Input.GetButton("Run");
             }
 
             // Check for dash input
             if (dashAbility && Input.GetButtonDown("Dash")) {
-
                 dashRequested = true;
                 isDashing = true;
                 dashBufferTimer = 0f;
             }
 
-        } else {
+
+
+
+
+        } else { // Set inputs to 0 if the player cannot move
+
             horizontalInput = 0;
             verticalInput = 0;
+            jumpRequested = false;
+            holdJumpTimer = 0f;
+            variableJumpHeldDuration = 0;
+            runInput = false;
+            dashRequested = false;
+
         }
 
 
@@ -917,7 +967,7 @@ public class PlayerController2D : MonoBehaviour
                 debugStringBuilder.AppendFormat("\nInputs:\n");
                 debugStringBuilder.AppendFormat($"H/V: {horizontalInput:F2} / {verticalInput:F2}\n");
                 debugStringBuilder.AppendFormat("Run: {0}\n", runInput);
-                debugStringBuilder.AppendFormat("Jump: {0}\n", Input.GetButtonDown("Jump"));
+                debugStringBuilder.AppendFormat("Jump: {0} ({1:0.0} / {2:0.0})\n", Input.GetButtonDown("Jump"), variableJumpHeldDuration, variableJumpMaxHoldDuration);
                 debugStringBuilder.AppendFormat("Dash: {0}\n", Input.GetButtonDown("Dash"));
 
                 debugText.text = debugStringBuilder.ToString();
