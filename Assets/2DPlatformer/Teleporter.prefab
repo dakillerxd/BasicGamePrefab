@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 7433319475137850595}
   - component: {fileID: 5675501794804825328}
   - component: {fileID: -6962597204337529161}
+  - component: {fileID: 7013988418346409998}
   m_Layer: 0
   m_Name: Teleporter
   m_TagString: Teleporter
@@ -74,7 +75,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: -1
   m_Sprite: {fileID: 7482667652216324306, guid: e2a20148dc1ac0140bd223b500a254d3, type: 3}
   m_Color: {r: 1, g: 0, b: 0.8707223, a: 1}
   m_FlipX: 0
@@ -146,3 +147,99 @@ MonoBehaviour:
   sceneToLoad:
     m_SceneAsset: {fileID: 0}
     m_SceneName: Level1
+--- !u!114 &7013988418346409998
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4768939878819942212}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 212b246944a941848abeb93605e9c293, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  enableHover: 0
+  hoverSpeed: 1
+  hoverAmount: 0.2
+  hoverDirection: {x: 0, y: 1, z: 0}
+  enableRotation: 1
+  xRotation:
+    continuousRotation: 0
+    reverseDirection: 0
+    oscillationAmount: 0
+    oscillationSpeed: 0
+    rotationSpeed: 30
+  yRotation:
+    continuousRotation: 0
+    reverseDirection: 0
+    oscillationAmount: 0
+    oscillationSpeed: 0
+    rotationSpeed: 30
+  zRotation:
+    continuousRotation: 1
+    reverseDirection: 1
+    oscillationAmount: 360
+    oscillationSpeed: 0
+    rotationSpeed: 90
+  enablePulse: 1
+  pulseAmount: 0.2
+  pulseSpeed: 2
+  pulseCooldown: 1
+  pulseCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  pulseX: 1
+  pulseY: 1
+  pulseZ: 1
+  enableBreathing: 0
+  breatheAmount: 0.2
+  breatheSpeed: 1
+  breatheCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  breatheX: 1
+  breatheY: 1
+  breatheZ: 1

@@ -4,6 +4,7 @@ using TMPro;
 using System;
 using UnityEngine.UI;
 using System.Text;
+using System.Collections;
 
 public class PlayerController2D : MonoBehaviour
 {
@@ -13,9 +14,7 @@ public class PlayerController2D : MonoBehaviour
     [Tab("Player Settings")]
     [Header("Health")]
     [SerializeField] private int maxHealth = 2;
-    private float stunLockTime = 0.1f;
-    private float invincibilityTime = 1f;
-    [SerializeField] private bool canTakeFallDamage = true;
+        [SerializeField] private bool canTakeFallDamage = true;
         [ShowIf("canTakeFallDamage")]
         [SerializeField] private int maxFallDamage = 1;
         [EndIf]
@@ -23,9 +22,9 @@ public class PlayerController2D : MonoBehaviour
     private int currentHealth;
     private int deaths;
     private bool isInvincible;
-    private float invincibilityTimer;
+    private float invincibilityTime;
     private bool isStunLocked;
-    private float stunLockTimer;
+    private float stunLockTime;
     [HideInInspector] public  float horizontalInput;
     [HideInInspector] public  float verticalInput;
     [HideInInspector] public bool isFacingRight = true;
@@ -662,8 +661,8 @@ public class PlayerController2D : MonoBehaviour
     private void Respawn(Vector2 position) {
 
         // Reset stats/states
-        TurnInvincible();
-        TurnStunLocked();
+        TurnInvincible(2f);
+        TurnStunLocked(0.5f);
         deaths += 1;
         transform.position = position;
         rigidBody.velocity = new Vector2(0, 0);
@@ -722,27 +721,56 @@ public class PlayerController2D : MonoBehaviour
             RespawnFromCheckpoint();
         }
     }
-    private void TurnStunLocked() {
-        isStunLocked = true;
-        stunLockTimer = 0f;
+    private void TurnStunLocked(float stunLockDuration = 0.1f) {
+        
+        StartCoroutine(StuckLock(stunLockDuration));
     }
 
     private void UnStuckLock() {
+
         isStunLocked = false;
-        stunLockTimer = 0f;
+        stunLockTime = 0f;
     
     }
 
-    private void TurnInvincible() {
+    private IEnumerator StuckLock(float stunLockDuration)
+    {
+        
+        isStunLocked = true;
+        stunLockTime = stunLockDuration;
 
-        isInvincible = true;
-        invincibilityTimer = 0f;
+        while (isStunLocked && stunLockTime > 0) {
+            stunLockTime -= Time.deltaTime;
+            yield return null;
+        }
+
+        UnStuckLock();
+    }
+
+
+
+    private void TurnInvincible(float invincibilityDuration = 0.5f) {
+
+        StartCoroutine(Invisible(invincibilityDuration));
     }
     
     private void TurnVulnerable() {
 
         isInvincible = false;
-        invincibilityTimer = 0f;
+    }
+
+    private IEnumerator Invisible(float invincibilityDuration)
+    {
+        
+        isInvincible = true;
+        invincibilityTime = invincibilityDuration;
+
+        while (isInvincible && invincibilityTime > 0) {
+            invincibilityTime -= Time.deltaTime;
+            yield return null;
+        }
+
+        TurnVulnerable();
     }
 
     #endregion Health/Checkpoint functions
@@ -753,31 +781,38 @@ public class PlayerController2D : MonoBehaviour
 
     private void CheckForInput() {
 
-        if (!CanMove()) return;
+        if (CanMove()) {
 
-        // Check for horizontal input
-        horizontalInput = Input.GetAxis("Horizontal");
+            // Check for horizontal input
+            horizontalInput = Input.GetAxis("Horizontal");
 
-        // Check for vertical input
-        verticalInput = Input.GetAxis("Vertical");
+            // Check for vertical input
+            verticalInput = Input.GetAxis("Vertical");
 
-        // Check for run input
-        if (runAbility) {runInput = Input.GetButton("Run");}
+            // Check for run input
+            if (runAbility) {runInput = Input.GetButton("Run");}
 
-        // Set jumpRequested if Jump button is pressed
-        if (Input.GetButtonDown("Jump"))
-        {
-            jumpRequested = true;
-            holdJumpTimer = 0f;
+            // Set jumpRequested if Jump button is pressed
+            if (Input.GetButtonDown("Jump"))
+            {
+                jumpRequested = true;
+                holdJumpTimer = 0f;
+            }
+
+            // Check for dash input
+            if (dashAbility && Input.GetButtonDown("Dash")) {
+
+                dashRequested = true;
+                isDashing = true;
+                dashBufferTimer = 0f;
+            }
+
+        } else {
+            horizontalInput = 0;
+            verticalInput = 0;
         }
 
-        // Check for dash input
-        if (dashAbility && Input.GetButtonDown("Dash")) {
 
-            dashRequested = true;
-            isDashing = true;
-            dashBufferTimer = 0f;
-        }
     }
 
     private void ControlSprite() {
@@ -830,24 +865,6 @@ public class PlayerController2D : MonoBehaviour
             dashBufferTimer += Time.deltaTime;
         }
 
-        // Invincibility timer
-        if (isInvincible) {
-
-            invincibilityTimer += Time.deltaTime;
-
-            if (invincibilityTimer >= invincibilityTime) {
-                TurnVulnerable();
-            }
-        }
-
-        // StunLock timer
-        if (isStunLocked) {
-            stunLockTimer += Time.deltaTime;
-
-            if (stunLockTimer >= stunLockTime) {
-                UnStuckLock();
-            }
-        }
 
     }
 
@@ -880,8 +897,8 @@ public class PlayerController2D : MonoBehaviour
 
                 debugStringBuilder.AppendFormat("\nStates:\n");
                 debugStringBuilder.AppendFormat("Facing Right: {0}\n", isFacingRight);
-                debugStringBuilder.AppendFormat("Invincible: {0} ({1:0.0} / {2:0.0})\n", isInvincible, invincibilityTimer, invincibilityTime);
-                debugStringBuilder.AppendFormat("Stun Locked: {0} ({1:0.0} / {2:0.0})\n", isStunLocked, stunLockTimer, stunLockTime);
+                debugStringBuilder.AppendFormat("Invincible: {0} ({1:0.0})\n", isInvincible, invincibilityTime);
+                debugStringBuilder.AppendFormat("Stun Locked: {0} ({1:0.0})\n", isStunLocked, stunLockTime);
                 debugStringBuilder.AppendFormat("Running: {0}\n", wasRunning);
                 debugStringBuilder.AppendFormat("Dashing: {0}\n", isDashing);
                 debugStringBuilder.AppendFormat("Wall Sliding: {0}\n", isWallSliding);
