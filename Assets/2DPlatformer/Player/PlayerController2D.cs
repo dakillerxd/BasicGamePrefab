@@ -187,7 +187,6 @@ public class PlayerController2D : MonoBehaviour
         CountTimers();
         CoyoteTimeCheck();
         CheckFaceDirection();
-        ControlSprite();
 
         if (Input.GetKeyDown(KeyCode.R)) { RespawnFromCheckpoint();}
         if (Input.GetKeyDown(KeyCode.F)) { CameraController2D.Instance.ShakeCamera(4,0.5f);}
@@ -418,19 +417,19 @@ public class PlayerController2D : MonoBehaviour
             }
             
             string jumpDirection;
-            if (horizontalInput > 0) {
+            if (rigidBody.velocity.x < 0 && horizontalInput > 0) {
                 jumpDirection = "Right";
-            } else if (horizontalInput < 0){
+            } else if (rigidBody.velocity.x > 0 && horizontalInput < 0){
                 jumpDirection = "Left";
             } else {
                 jumpDirection = "None";
             }
             if (isGrounded || canCoyoteJump) { // Ground / Coyote jump
-                ExecuteJump(1);
+                ExecuteJump(1, "None");
             } else if (!(isGrounded && canCoyoteJump) && !isTouchingWall && remainingJumps > 1) { // Extra jump after coyote time passed
-                ExecuteAirJump(2, jumpDirection);
+                ExecuteJump(2, jumpDirection);
             } else if (!(isGrounded && canCoyoteJump && isJumping) && !isTouchingWall && remainingJumps > 0) { // Extra jumps
-                ExecuteAirJump(1, jumpDirection);
+                ExecuteJump(1, jumpDirection);
             }
         }
 
@@ -451,30 +450,8 @@ public class PlayerController2D : MonoBehaviour
         }
     }
 
-    private void ExecuteJump(int jumpCost) { 
 
-        // Play effects
-        if (isGrounded) {
-            if (jumpEffect) jumpEffect.Play();
-        } else {
-            if (airJumpEffect) airJumpEffect.Play();
-        } 
-
-        // Jump
-        rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
-        jumpInputDownRequested = false;
-        remainingJumps -= jumpCost;
-        isJumping = true;
-        jumpInputHeld = true;
-        isJumpCut = false;
-        variableJumpHeldDuration = 0;
-
-        // Reset coyote state
-        coyoteJumpTime = 0;
-        canCoyoteJump = false;
-    }
-
-    private void ExecuteAirJump(int jumpCost, string side) {
+    private void ExecuteJump(int jumpCost, string side) {
 
         // Play effects
         if (airJumpEffect) airJumpEffect.Play();
@@ -855,11 +832,13 @@ public class PlayerController2D : MonoBehaviour
     private void TurnVulnerable() {
 
         isInvincible = false;
+        spriteRenderer.color = new Color(1f, 1f, 1f, 1f);
     }
 
     private IEnumerator Invisible(float invincibilityDuration) {
         
         isInvincible = true;
+        spriteRenderer.color = new Color(1f, 1f, 1f, 0.5f);
         invincibilityTime = invincibilityDuration;
 
         while (isInvincible && invincibilityTime > 0) {
@@ -921,14 +900,7 @@ public class PlayerController2D : MonoBehaviour
         }
     }
 
-    private void ControlSprite() {
 
-        if (isInvincible) {
-            spriteRenderer.color = new Color(1f, 1f, 1f, 0.5f);
-        } else {
-            spriteRenderer.color = new Color(1f, 1f, 1f, 1f);
-        }
-    }
 
     private void CheckFaceDirection() {
 
