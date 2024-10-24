@@ -57,16 +57,17 @@ public class CheckpointManager2D : MonoBehaviour
 
     public void ActivateCheckpoint(GameObject checkpoint) {
 
+        if (activeCheckpoint == checkpoint) return;
         DeactivateLastCheckpoint();
         activeCheckpoint = checkpoint;
-        activeCheckpoint.GetComponent<SpriteRenderer>().color = activeCheckpointColor;
+        activeCheckpoint.GetComponent<Checkpoint2D>().SetActive(true);
     }
 
 
     private void DeactivateLastCheckpoint() {
 
         if (!activeCheckpoint) return;
-        activeCheckpoint.GetComponent<SpriteRenderer>().color = disabledCheckpointColor;
+        activeCheckpoint.GetComponent<Checkpoint2D>().SetActive(false);
         activeCheckpoint = null;
         
     }

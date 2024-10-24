@@ -146,6 +146,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   disabledColor: {r: 1, g: 1, b: 1, a: 1}
   activeColor: {r: 0, g: 1, b: 0, a: 1}
+  activateVfx: {fileID: 5060159489429807464, guid: 2dadc2df3cb20a14db864d550615f891, type: 3}
+  deactivateVfx: {fileID: 5579046581869520350, guid: f392634cab1cbb04c8e08d0f1080b63c, type: 3}
+  activeSfx: {fileID: 0}
+  deactivateSfx: {fileID: 0}
   active: 0
 --- !u!114 &8447212999456310852
 MonoBehaviour:

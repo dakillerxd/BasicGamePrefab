@@ -121,6 +121,7 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private Collider2D collFeet;
 
     [Header("VFX")]
+    [SerializeField] private ParticleSystem hurtEffect;
     [SerializeField] private ParticleSystem jumpEffect;
     [SerializeField] private ParticleSystem airJumpEffect;
     [SerializeField] private ParticleSystem runEffect;
@@ -256,10 +257,13 @@ public class PlayerController2D : MonoBehaviour
 
 
         // Play run effect
+        float movementThreshold = 0.2f;
+        bool isMoving = rigidBody.velocity.x > movementThreshold || rigidBody.velocity.x < -movementThreshold;
+
         if (runEffect) {
-            if (runAbility && runInput && isGrounded)
+            if (runAbility && runInput && isGrounded && !isWallSliding && isMoving)
             {
-                if (runEffect.isStopped) runEffect.Play();
+                if (!runEffect.isPlaying) runEffect.Play();
             }
             else
             {
@@ -394,16 +398,10 @@ public class PlayerController2D : MonoBehaviour
     //------------------------------------
     #region Jump functions
     private void HandleJump() {
-
-        // Reset jump cut when starting a new jump
-        if (jumpInputDownRequested) {
-            isJumpCut = false;
-        }
-
         
         if (jumpInputUp && !isJumpCut) { 
             
-            // Only Cut jump height if button is released early
+            // Only Cut jump height if button is released early AND we're still in upward motion
             if (isJumping && rigidBody.velocity.y > 0) {
                 rigidBody.velocity = new Vector2(rigidBody.velocity.x, rigidBody.velocity.y * variableJumpMultiplier);
                 isJumpCut = true;
@@ -412,7 +410,6 @@ public class PlayerController2D : MonoBehaviour
             variableJumpHeldDuration = 0;
         }
 
-
         if (jumpInputDownRequested) { // Jump
 
             if (holdJumpDownTimer > holdJumpDownBuffer) { // If past jump buffer then dont jump
@@ -420,22 +417,35 @@ public class PlayerController2D : MonoBehaviour
                 return;
             }
             
+            string jumpDirection;
+            if (horizontalInput > 0) {
+                jumpDirection = "Right";
+            } else if (horizontalInput < 0){
+                jumpDirection = "Left";
+            } else {
+                jumpDirection = "None";
+            }
             if (isGrounded || canCoyoteJump) { // Ground / Coyote jump
                 ExecuteJump(1);
-            } else if (!(isGrounded && canCoyoteJump )&& !isTouchingWall && remainingJumps > 1) { // Extra jump after coyote time passed
-                ExecuteJump(2);
-            } else if (!(isGrounded && canCoyoteJump  && isJumping)&& !isTouchingWall && remainingJumps > 0) { // Extra jumps
-                ExecuteJump(1);
+            } else if (!(isGrounded && canCoyoteJump) && !isTouchingWall && remainingJumps > 1) { // Extra jump after coyote time passed
+                ExecuteAirJump(2, jumpDirection);
+            } else if (!(isGrounded && canCoyoteJump && isJumping) && !isTouchingWall && remainingJumps > 0) { // Extra jumps
+                ExecuteAirJump(1, jumpDirection);
             }
         }
 
-
-
-        if (isGrounded && !isJumping) { // Reset jumps
+        // Reset jumps and jump cut state when grounded
+        if (isGrounded) { 
             remainingJumps = maxJumps;
             isJumpCut = false;
+            // Only reset isJumping if not actively jumping
+            if (rigidBody.velocity.y <= 0) {
+                isJumping = false;
+            }
         }
-        if (!isGrounded && rigidBody.velocity.y <= 0) { // Reset jump state
+
+        // Reset jump state and cut when falling
+        if (!isGrounded && rigidBody.velocity.y <= 0) { 
             isJumping = false;
             isJumpCut = false;
         }
@@ -464,6 +474,30 @@ public class PlayerController2D : MonoBehaviour
         canCoyoteJump = false;
     }
 
+    private void ExecuteAirJump(int jumpCost, string side) {
+
+        // Play effects
+        if (airJumpEffect) airJumpEffect.Play();
+
+        // Jump
+        if (side == "Right") {
+            rigidBody.velocity = new Vector2(jumpForce, jumpForce);
+        } else if (side == "Left") {
+            rigidBody.velocity = new Vector2(-jumpForce, jumpForce);
+        } else if (side == "None") {
+            rigidBody.velocity = new Vector2(rigidBody.velocity.x, jumpForce);
+        }
+        jumpInputDownRequested = false;
+        remainingJumps -= jumpCost;
+        isJumping = true;
+        jumpInputHeld = true;
+        isJumpCut = false;
+        variableJumpHeldDuration = 0;
+
+        // Reset coyote state
+        coyoteJumpTime = 0;
+        canCoyoteJump = false;
+    }
 
     private void HandleWallJump () {
 
@@ -500,10 +534,8 @@ public class PlayerController2D : MonoBehaviour
         // Jump
         if (side == "Right") {
             rigidBody.velocity = new Vector2(wallJumpHorizontalForce, wallJumpVerticalForce);
-            FlipPlayer("Right");
         } else if (side == "Left") {
             rigidBody.velocity = new Vector2(-wallJumpHorizontalForce, wallJumpVerticalForce);
-            FlipPlayer("Left");
         }
         jumpInputDownRequested = false;
         variableJumpHeldDuration = 0;
@@ -636,15 +668,31 @@ public class PlayerController2D : MonoBehaviour
                 DamageHealthAndPush(1, enemyPushForce, true, collision.gameObject.name);
 
             break;
-
             case "Spike":
 
                 Vector2 spikeNormal = collision.GetContact(0).normal;
                 Vector2 spikePushForce = spikeNormal * 5f;
-                
                 DamageHealthAndPush(1, spikePushForce, true, collision.gameObject.name);
 
+            break;
+        }
+    }
 
+    private void OnCollisionEnter2D(Collision2D collision) {
+
+        switch (collision.gameObject.tag) {
+            case "Enemy":
+
+                Vector2 enemyNormal = collision.GetContact(0).normal;
+                Vector2 enemyPushForce = enemyNormal * 5f;
+                DamageHealthAndPush(1, enemyPushForce, true, collision.gameObject.name);
+
+            break;
+            case "Spike":
+
+                Vector2 spikeNormal = collision.GetContact(0).normal;
+                Vector2 spikePushForce = spikeNormal * 5f;
+                DamageHealthAndPush(1, spikePushForce, true, collision.gameObject.name);
 
             break;
         }
@@ -652,24 +700,23 @@ public class PlayerController2D : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D collision) {
 
-        switch (collision.gameObject.tag)
-        {
+        switch (collision.gameObject.tag) {
             case "RespawnTrigger":
 
                 RespawnFromCheckpoint();
 
-                break;
+            break;
             case "Checkpoint":
 
 
                 CheckpointManager2D.Instance.ActivateCheckpoint(collision.gameObject);
 
-                break;
+            break;
             case "Teleporter":
 
                 Teleporter2D teleporter = collision.gameObject.GetComponent<Teleporter2D>();
                 teleporter.GoToSelectedLevel();
-                break;
+            break;
         }
     }
 
@@ -727,7 +774,8 @@ public class PlayerController2D : MonoBehaviour
 
         if (currentHealth > 0 && !isInvincible) {
             
-            if (setInvincible) {TurnInvincible();}
+            if (hurtEffect) { ParticleSystem particleEffectInstance = Instantiate(hurtEffect, transform.position, Quaternion.identity);}
+            if (setInvincible) { TurnInvincible();}
             TurnStunLocked();
             currentHealth -= damage;
             Debug.Log("Damaged by: " + cause);
@@ -747,9 +795,10 @@ public class PlayerController2D : MonoBehaviour
             rigidBody.AddForce(pushForce, ForceMode2D.Impulse);
             
             // Clamp the resulting velocity to prevent excessive speed
-            float maxPushSpeed = 4f; // Adjust this value to control maximum push speed
+            float maxPushSpeed = 4f;
             rigidBody.velocity = Vector2.ClampMagnitude(rigidBody.velocity, maxPushSpeed);
             
+            if (hurtEffect) { ParticleSystem particleEffectInstance = Instantiate(hurtEffect, transform.position, Quaternion.identity);}
             if (setInvincible) { TurnInvincible(); }
             TurnStunLocked();
             currentHealth -= damage;
@@ -781,11 +830,9 @@ public class PlayerController2D : MonoBehaviour
 
         isStunLocked = false;
         stunLockTime = 0f;
-    
     }
 
-    private IEnumerator StuckLock(float stunLockDuration)
-    {
+    private IEnumerator StuckLock(float stunLockDuration) {
         
         isStunLocked = true;
         stunLockTime = stunLockDuration;
@@ -810,8 +857,7 @@ public class PlayerController2D : MonoBehaviour
         isInvincible = false;
     }
 
-    private IEnumerator Invisible(float invincibilityDuration)
-    {
+    private IEnumerator Invisible(float invincibilityDuration) {
         
         isInvincible = true;
         invincibilityTime = invincibilityDuration;
@@ -848,6 +894,11 @@ public class PlayerController2D : MonoBehaviour
             if (Input.GetButtonDown("Jump")) {
                 jumpInputDownRequested = true;
                 holdJumpDownTimer = 0f;
+
+                // Only reset jump cut when starting a new jump
+                if (isGrounded || canCoyoteJump || remainingJumps > 0) {
+                    isJumpCut = false;
+                }
             }
 
             
@@ -863,26 +914,14 @@ public class PlayerController2D : MonoBehaviour
                 dashBufferTimer = 0f;
             }
 
-
-
-
-
         } else { // Set inputs to 0 if the player cannot move
 
             horizontalInput = 0;
             verticalInput = 0;
         }
-
-
     }
 
     private void ControlSprite() {
-
-        if (isFacingRight) {
-            spriteRenderer.flipX = false;
-        } else {
-            spriteRenderer.flipX = true;
-        }
 
         if (isInvincible) {
             spriteRenderer.color = new Color(1f, 1f, 1f, 0.5f);
@@ -895,19 +934,24 @@ public class PlayerController2D : MonoBehaviour
 
         if (isWallSliding) return; // Only flip the player based on input if he is not wall sliding
 
-        if (horizontalInput > 0) {
+        if (!isFacingRight && horizontalInput > 0) {
             FlipPlayer("Right");
-        } else if (horizontalInput < 0) {
+        } else if (isFacingRight && horizontalInput < 0) {
             FlipPlayer("Left");
         }
     }
     
     private void FlipPlayer(string side) {
-        
+    
+        if (isFacingRight && side == "Right") return; // Only flip the player if he is not already facing the wanted direction
+
         if (side == "Left") {
             isFacingRight = false;
+            transform.Rotate(0f, -180f, 0f);
+            
         } else if (side == "Right") {
             isFacingRight = true;
+            transform.Rotate(0f, 180f, 0f);
         }
     }
 
@@ -931,8 +975,6 @@ public class PlayerController2D : MonoBehaviour
 
             dashBufferTimer += Time.deltaTime;
         }
-
-
     }
 
 
