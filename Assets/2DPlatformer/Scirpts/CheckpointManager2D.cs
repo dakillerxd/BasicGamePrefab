@@ -8,14 +8,17 @@ public class CheckpointManager2D : MonoBehaviour
     public static CheckpointManager2D Instance { get; private set; }
 
     [Header("Settings")]
-    
     [SerializeField] private Color disabledCheckpointColor = Color.white;
     [SerializeField] private Color activeCheckpointColor = Color.green;
-
     [SerializeField] [ReadOnly] public Vector2 playerSpawnPoint;
     [SerializeField] [ReadOnly] public GameObject activeCheckpoint;
     [SerializeField] [ReadOnly] private GameObject[] checkpointList;
     
+    [Header("References")]
+    [SerializeField] private ParticleSystem activateVfx;
+    [SerializeField] private ParticleSystem deactivateVfx;
+    [SerializeField] private AudioSource activeSfx;
+    [SerializeField] private AudioSource deactivateSfx;
 
 
 
@@ -40,10 +43,16 @@ public class CheckpointManager2D : MonoBehaviour
 
     private void FindAllCheckpoints() {
 
+        // Find all the checkpoints in the scene
         checkpointList = GameObject.FindGameObjectsWithTag("Checkpoint");
-
         checkpointList = checkpointList.ToArray();
         Debug.Log($"Found {checkpointList.Length} checkpoints in the scene.");
+
+        // Set the color for each checkpoint
+        foreach (GameObject checkpoint in checkpointList) {
+
+            SeCheckpointColor(checkpoint, disabledCheckpointColor);
+        }
     }
 
 
@@ -57,19 +66,39 @@ public class CheckpointManager2D : MonoBehaviour
 
     public void ActivateCheckpoint(GameObject checkpoint) {
 
-        if (activeCheckpoint == checkpoint) return;
+        if (activeCheckpoint == checkpoint) return; // If the active checkpoint is the same as the new one do nothing
+
+
         DeactivateLastCheckpoint();
         activeCheckpoint = checkpoint;
-        activeCheckpoint.GetComponent<Checkpoint2D>().SetActive(true);
+        SpawnParticleEffect(activateVfx, activeCheckpoint.transform.position, activeCheckpoint.transform.rotation, activeCheckpoint.transform);
+        SeCheckpointColor(activeCheckpoint, activeCheckpointColor);
     }
 
 
     private void DeactivateLastCheckpoint() {
 
-        if (!activeCheckpoint) return;
-        activeCheckpoint.GetComponent<Checkpoint2D>().SetActive(false);
+        if (!activeCheckpoint) return; // If there is no active checkpoint then do nothing
+
+
+        SpawnParticleEffect(deactivateVfx, activeCheckpoint.transform.position, activeCheckpoint.transform.rotation, activeCheckpoint.transform);
+        SeCheckpointColor(activeCheckpoint, disabledCheckpointColor);
         activeCheckpoint = null;
         
     }
 
+
+    private void SpawnParticleEffect(ParticleSystem effect, Vector3 position, Quaternion rotation, Transform parent) {
+
+        if (effect == null) return; // If no effect when selected in the inspector then do nothing
+
+        ParticleSystem particleEffectInstance = Instantiate(effect, position, rotation, parent);
+        
+    }
+
+    
+    private void SeCheckpointColor(GameObject checkpoint, Color color) {
+
+        checkpoint.GetComponent<SpriteRenderer>().color = color;
+    }
 }

@@ -183,10 +183,10 @@ MonoBehaviour:
   collBody: {fileID: 6793365586128216939}
   collFeet: {fileID: 6324724260074634322}
   hurtEffect: {fileID: 5060159489429807464, guid: 2fe82b81a05eb4c499f6106eab7c6bcc, type: 3}
-  jumpEffect: {fileID: 0}
-  airJumpEffect: {fileID: 0}
+  jumpEffect: {fileID: 4468245373301233434, guid: 886f18ca0997ba14a97e030b7779bec8, type: 3}
+  airJumpEffect: {fileID: 4468245373301233434, guid: 886f18ca0997ba14a97e030b7779bec8, type: 3}
   runEffect: {fileID: 4562808088674882018}
-  deathEffect: {fileID: 0}
+  deathEffect: {fileID: 5936299839186477038, guid: 7d4c0534cb4d9dc4982b85547abfe92b, type: 3}
   spawnEffect: {fileID: 0}
   dashEffect: {fileID: 0}
   jumpSfx: {fileID: 0}

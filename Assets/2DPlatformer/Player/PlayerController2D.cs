@@ -454,7 +454,10 @@ public class PlayerController2D : MonoBehaviour
     private void ExecuteJump(int jumpCost, string side) {
 
         // Play effects
-        if (airJumpEffect) airJumpEffect.Play();
+        if (!isGrounded) {
+            if (airJumpEffect) { ParticleSystem particleEffectInstance = Instantiate(airJumpEffect, transform.position + new Vector3(0f, -0.2f, 0f), Quaternion.identity, transform); }
+        }
+        
 
         // Jump
         if (side == "Right") {
@@ -790,7 +793,7 @@ public class PlayerController2D : MonoBehaviour
 
         if (currentHealth <= 0) {
 
-            if (deathEffect) {deathEffect.Play();}
+            if (deathEffect) {{ParticleSystem particleEffectInstance = Instantiate(deathEffect, transform.position, Quaternion.identity);}}
             if (deathSfx) {deathSfx.Play();}
 
             Debug.Log("Death by: " + cause);
